@@ -34,7 +34,6 @@
 /* MIDI1.0 definitions by Jan-Willem Smaal */
 #include "midi1.h"
 
-
 /*
  * This 'MSQ_SIZE' constant is something you will want to tune.
  * It's not good in Music to have deep buffers due to delay buildup (latency)
@@ -108,8 +107,8 @@ struct midi1_serial_data {
 struct midi1_serial_api {
 	/* -- == Receive  == --   */
 	int (*register_callbacks)(const struct device * dev,
-				  struct midi1_serial_callbacks * cb);
-	void (*receiveparser)(const struct device *dev);
+	                          struct midi1_serial_callbacks * cb);
+	void (*receiveparser)(const struct device * dev);
 	/* -- == Transmit == --   */
 
 	/* Channel mode messages */
@@ -160,7 +159,7 @@ int midi1_serial_init(const struct device *dev);
  * @param *cb callback struct 
  */
 int midi1_serial_register_callbacks(const struct device *dev,
-				    struct midi1_serial_callbacks *cb);
+                                    struct midi1_serial_callbacks *cb);
 
 /**
  * @brief this needs to be called in a loop to process the received MIDI1
