@@ -34,8 +34,6 @@
 #include "midi1.h"
 #include "midi1_serial.h"
 
-#define MIDI1_SERIAL_DEBUG 0
-
 
 /*
  * Empty NO OP (noop) callbacks assigned if the caller leaves the callbacks
@@ -44,17 +42,11 @@
 static inline void midi1_noop_note_on(uint8_t channel, uint8_t note,
                                       uint8_t velocity)
 {
-#if MIDI1_SERIAL_DEBUG
-	printk("noop_note_on=%p\n", midi1_noop_note_on);
-#endif
 }
 
 static inline void midi1_noop_note_off(uint8_t channel, uint8_t note,
                                        uint8_t velocity)
 {
-#if MIDI1_SERIAL_DEBUG
-	printk("noop_note_off=%p\n", midi1_noop_note_off);
-#endif
 }
 
 static inline void midi1_noop_control_change(uint8_t channel,
@@ -116,8 +108,6 @@ static void midi1_serial_isr_callback(const struct device *dev, void *user_data)
 	 * struct as we use that throughout the driver.
 	 */
 	const struct device *midi1_serial = (const struct device *)user_data;
-	// const struct device *midi1_serial = dev;
-
 	const struct midi1_serial_config *cfg = midi1_serial->config;
 	struct midi1_serial_data *data = midi1_serial->data;
 	
@@ -400,7 +390,7 @@ void midi1_serial_pitchwheel(const struct device *dev,
 
 	/* Value is 14 bits so need to shift 7 */
 	uart_poll_out(cfg->uart, val & ~(CHANNEL_VOICE_MASK));  /* LSB */
-	uart_poll_out(cfg->uart, (val >> 7) & ~(CHANNEL_VOICE_MASK));   /* MSB */
+	uart_poll_out(cfg->uart, (val >> 7) & ~(CHANNEL_VOICE_MASK)); /* MSB */
 	data->running_status_tx_count++;
 }
 
@@ -506,9 +496,6 @@ void midi1_serial_receiveparser(const struct device *dev)
 		return;
 	} else {
 		/* Valid message received ! */
-#if MIDI1_SERIAL_DEBUG
-		printk("%2X ", c);
-#endif
 	}
 
 	/*
@@ -679,6 +666,7 @@ void midi1_serial_receiveparser(const struct device *dev)
 /* Zephyr device driver API link to our actual implementation */
 static const struct midi1_serial_api midi1_serial_driver_api = {
 	.register_callbacks = midi1_serial_register_callbacks,
+	.receiveparser = midi1_serial_receiveparser,
 	.note_on = midi1_serial_note_on,
 	.note_off = midi1_serial_note_off,
 	.control_change = midi1_serial_control_change,
@@ -705,7 +693,7 @@ static const struct midi1_serial_config midi1_serial_config_##inst = {     \
 .uart = DEVICE_DT_GET(DT_INST_PROP(inst, uart)),                           \
 };                                                                         \
 DEVICE_DT_INST_DEFINE(inst,                                                \
-midi1_serial_init,                                                          \
+midi1_serial_init,                                                         \
 NULL,                                                                      \
 &midi1_serial_data_##inst,                                                 \
 &midi1_serial_config_##inst,                                               \

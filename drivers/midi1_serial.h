@@ -109,6 +109,7 @@ struct midi1_serial_api {
 	/* -- == Receive  == --   */
 	int (*register_callbacks)(const struct device * dev,
 				  struct midi1_serial_callbacks * cb);
+	void (*receiveparser)(const struct device *dev);
 	/* -- == Transmit == --   */
 
 	/* Channel mode messages */

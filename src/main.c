@@ -90,25 +90,32 @@ void midi1_serial_receive_thread(void)
 {
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
 	
-	/*
-	 * Set the callbacks in the driver to our own callbacks.  Pointers
-	 * left null are not used in the callbacks.
-	 */
-	struct midi1_serial_callbacks my_cb = {
-		.note_on = note_on_handler,
-		.note_off = note_off_handler
-	};
-	midi1_serial_register_callbacks(midi, &my_cb);
-	
-	
 	if (!device_is_ready(midi)) {
 		printk("receive_thread Serial MIDI1 device not ready\n");
 		return;
 	}
+	const struct midi1_serial_api *mid = midi->api;
+	
+	/*
+	 * Set the callbacks in the driver to our own callbacks.  Pointers
+	 * left null are not used in the callbacks.
+	 * e.g. right now the aftertouch is not handled.
+	 */
+	struct midi1_serial_callbacks my_cb = {
+		.note_on = note_on_handler,
+		.note_off = note_off_handler,
+		.control_change = control_change_handler,
+		.pitchwheel = pitchwheel_handler,
+		.sysex_start = sysex_start_handler,
+		.sysex_data = sysex_data_handler,
+		.sysex_stop = sysex_stop_handler
+	};
+	// midi1_serial_register_callbacks(midi, &my_cb);
+	mid->register_callbacks(midi, &my_cb);
 	
 	while(1){
 		/* As this call is blocking no need to sleep in between */
-		midi1_serial_receiveparser(midi);
+		mid->receiveparser(midi);
 	}
 }
 K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
@@ -120,18 +127,13 @@ K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
  * and the rest of threads keeps running just fine.
  */
 int main(void) {
-	/* Boiler plate start */
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
-
         if (!device_is_ready(midi)) {
                 printk("Serial MIDI1 device not ready\n");
                 return 0;
         }
 	/* You can either use the pointer to the API or the public interface */
 	const struct midi1_serial_api *mid = midi->api;
-	
-	/* Boiler plate end */
-	
 	
 	/* Using the API pointer */
 	mid->note_on(midi, CH4, 1, 60);
@@ -140,7 +142,6 @@ int main(void) {
 	/* Using the public interface for the driver same effect */
 	midi1_serial_note_off(midi, CH4, 1, 60);
 	k_sleep(K_MSEC(290));
-	
 	
         while (1) {
 		/* Running status is used < 300 ms */ 
