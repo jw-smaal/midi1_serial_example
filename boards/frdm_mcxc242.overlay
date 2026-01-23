@@ -1,0 +1,148 @@
+/*
+ * @brief FRDM-MCXW242 board configuration for the MIDI clock
+ * @note
+ * it is using a MIDI arduino shield but I disconnected
+ * the 5V and connected it to 3.3V instead to protect the MCU inputs.
+ * I should lower the output and input from 220R resistors to 33R but it
+ * seems to "work" on some interfaces without that in some shape or form.
+ *
+ * @author Jan-Willem Smaal
+ * @date 20250101
+ * SPDX-License-Identifier: Apache-2.0
+ */
+ 
+/*
+ * Classic MIDI1.0 over DIN5 plug.
+ * note on the FRDM-MCXC242 the LPUART0 is shared with the MCU_LINK.
+ * so be aware!   If you send printk's you need to set the baud rate
+ * to 31250 from the default 115200 to see something usefull
+ *
+ * Also note anything you send out to the MCU_LINK will end up on the MIDI
+ * port!
+ *
+ */
+&lpuart0 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+/* This one is on the MIKRObus and is not shared with the MCU_LINK. */
+&lpuart1 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+&pinctrl {
+	pinmux_lpuart0: pinmux_lpuart0 {
+		group0 {
+			/* Strongest drive + fast edges */
+			drive-strength = "high";
+			slew-rate = "fast";
+		};
+	};
+	pinmux_lpuart1: pinmux_lpuart1 {
+		group0 {
+			/* Strongest drive + fast edges */
+			drive-strength = "high";
+			slew-rate = "fast";
+		};
+	};
+};
+
+/* We are using the periodic interrupt timer  (PIT) so switch it on */
+&pit0 {
+	status = "okay";
+};
+
+/*
+ * Enable these GPIO's' for the scope outputs I use this to
+ * measure the clock sync on ingress and egress.
+ */
+&gpioa {
+	status = "okay";
+};
+
+&gpioc {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	ssd1306: ssd1306@3c {
+		status = "okay";
+		compatible = "solomon,ssd1306fb";
+		reg = <0x3c>;
+		label = "SSD1306";
+		width = <128>;
+		height = <64>;
+		segment-offset = <0>; 
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		/* Had to enable this to mirror the image */ 
+		com-invdir;
+		/* prechargep = <0x22>; */
+		/* Used for the SH1106 */
+		/* prechargep = <0x1F>; */
+		/* Used for the SSD1306 */
+		prechargep = <0xF1>;
+		/* The next one was required to flip the image */
+		segment-remap;
+	        inversion-on;
+	        /* Critical part on the SSD1306 don't make this too long */
+	        ready-time-ms = <100>;
+	};
+};
+
+/* ---------------------------------------------------------------- */
+
+/ {
+	midi0: midi0 {
+		status = "okay";
+		compatible = "midi1_serial";
+		uart = <&lpuart0>;
+	};
+	midi1: midi1 {
+		status = "okay";
+		compatible = "midi1_serial";
+		uart = <&lpuart1>;
+	};
+	usb_midi: usb_midi {
+		compatible = "zephyr,midi2-device";
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		label = "Zephyr USB-MIDI";
+
+		midi_in_out@0 {
+			reg = <0 1>;
+			protocol = "midi1-up-to-128b";
+			label = "MIDI-IN-OUT";
+		};
+	};
+	leds {
+		compatible = "gpio-leds";
+		/* Everytime a 0xF8 is sent we toggle pin C8  */
+		freq_out: freq_out {
+			gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;
+			label = "FREQ_GEN_OUT";
+		};
+		/* Everytime a 0xF8 is received we toggle pin A12  */
+		rx_midi_clk: rx_midi_clk{
+			gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;
+			label = "FREQ_RX_OUT";
+		};
+	};
+	aliases {
+		midi = &lpuart0;
+		counterch0 = &pit0_channel0;
+		counterch1 = &pit0_channel1;
+	};
+	chosen {
+                zephyr,display = &ssd1306; 
+        };
+};

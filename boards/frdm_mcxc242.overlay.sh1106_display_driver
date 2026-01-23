@@ -1,0 +1,109 @@
+/*
+ * @brief FRDM-MCXW242 board configuration for the MIDI clock
+ * @note
+ * it is using a MIDI arduino shield but I disconnected
+ * the 5V and connected it to 3.3V instead to protect the MCU inputs.
+ * I should lower the output and input from 220R resistors to 33R but it
+ * seems to "work" on some interfaces without that in some shape or form.
+ *
+ * @author Jan-Willem Smaal
+ * @date 20250101
+ */
+ 
+/*
+ * Classic MIDI1.0 over DIN5 plug.
+ * note on the FRDM-MCXC242 the LPUART0 is shared with the MCU_LINK.
+ * so be aware!   If you send printk's you need to set the baud rate
+ * to 31250 from the default 115200 to see something usefull
+ *
+ * Also note anything you send out to the MCU_LINK will end up on the MIDI
+ * port!
+ *
+ */
+&lpuart0 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+/* We are using the periodic interrupt timer  (PIT) so switch it on */
+&pit0 {
+	status = "okay";
+};
+
+/*
+ * Enable these GPIO's' for the scope outputs I use this to
+ * measure the clock sync on ingress and egress.
+ */
+&gpioa {
+	status = "okay";
+};
+
+&gpioc {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	sh1106: ssd1306@3c {
+		status = "okay";
+		// compatible = "solomon,ssd1306fb";
+		compatible = "sinowealth,sh1106";
+		reg = <0x3c>;
+		label = "SH1106";
+		width = <128>;
+		height = <64>;
+		segment-offset = <2>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		/* Had to enable this to mirror the image */ 
+		com-invdir;
+		/* prechargep = <0x22>; */
+		prechargep = <0x1F>;
+		/* The next one was required to flip the image */
+		segment-remap;
+	        /*	inversion-on; */
+	        ready-time-ms = <100>;
+	};
+};
+
+
+/* ---------------------------------------------------------------- */
+
+/ {
+	usb_midi: usb_midi {
+		compatible = "zephyr,midi2-device";
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		label = "Zephyr USB-MIDI";
+
+		midi_in_out@0 {
+			reg = <0 1>;
+			protocol = "midi1-up-to-128b";
+			label = "MIDI-IN-OUT";
+		};
+	};
+	leds {
+		compatible = "gpio-leds";
+		/* Everytime a 0xF8 is sent we toggle pin C8  */
+		freq_out: freq_out {
+			gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>;
+			label = "FREQ_GEN_OUT";
+		};
+		/* Everytime a 0xF8 is received we toggle pin A12  */
+		rx_midi_clk: rx_midi_clk{
+			gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>;
+			label = "FREQ_RX_OUT";
+		};
+	};
+	aliases {
+		midi = &lpuart0;
+	};
+	chosen {
+                zephyr,display = &sh1106; 
+        };
+};
