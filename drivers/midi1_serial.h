@@ -34,7 +34,6 @@
 /* MIDI1.0 definitions by Jan-Willem Smaal */
 #include "midi1.h"
 
-#define MIDI1_SERIAL_DEBUG 1
 
 /*
  * This 'MSQ_SIZE' constant is something you will want to tune.
@@ -98,35 +97,9 @@ struct midi1_serial_data {
 	bool in_sysex;
 
 	/*
-	 * Must be filled bu the application after init not const
-	 * because it may change after init or runtime
+	 * Must be filled by the application after init.
 	 */
-	struct midi1_serial_callbacks *cb;
-	
-	/*
-	 * Callback delegates
-	 */
-	void (*note_on)(uint8_t channel, uint8_t note, uint8_t velocity);
-	void (*note_off)(uint8_t channel, uint8_t note, uint8_t velocity);
-	void (*control_change)(uint8_t channel, uint8_t controller,
-	                       uint8_t value);
-
-	void (*pitchwheel)(uint8_t channel, uint8_t lsb, uint8_t msb);
-	void (*program_change)(uint8_t channel, uint8_t number);
-	void (*channel_aftertouch)(uint8_t channel, uint8_t pressure);
-	void (*poly_aftertouch)(uint8_t channel, uint8_t note,
-	                        uint8_t pressure);
-
-	/* Callback for the realtime messages (clock, stop etc..) */
-	void (*realtime)(uint8_t msg);
-
-	/*
-	 * Sysex callback data be aware this can be a lot of data e.g. sample
-	 * dumps
-	 */
-	void (*sysex_start)(void);
-	void (*sysex_data)(uint8_t data);
-	void (*sysex_stop)(void);
+	struct midi1_serial_callbacks cb;
 };
 
 /**

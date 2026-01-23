@@ -34,6 +34,9 @@
 #include "midi1.h"
 #include "midi1_serial.h"
 
+#define MIDI1_SERIAL_DEBUG 1
+
+
 /*
  * Empty NO OP (noop) callbacks assigned if the caller leaves the callbacks
  * empty.  Gives the caller flexibillity in what to respond to.
@@ -41,11 +44,17 @@
 static inline void midi1_noop_note_on(uint8_t channel, uint8_t note,
                                       uint8_t velocity)
 {
+#if MIDI1_SERIAL_DEBUG
+	printk("noop_note_on=%p\n", midi1_noop_note_on);
+#endif
 }
 
 static inline void midi1_noop_note_off(uint8_t channel, uint8_t note,
                                        uint8_t velocity)
 {
+#if MIDI1_SERIAL_DEBUG
+	printk("noop_note_off=%p\n", midi1_noop_note_off);
+#endif
 }
 
 static inline void midi1_noop_control_change(uint8_t channel,
@@ -90,9 +99,49 @@ static inline void midi1_noop_sysex_stop(void)
 {
 }
 
-/* The ISR callback asssigned during init */
-static void midi1_serial_isr_callback(const struct device *dev,
-                                      void *user_data);
+/**
+ * @brief MIDI Byte Receive parser implementation - Interrupt Service Routine
+ *
+ * @param device device pointer
+ * @param user_data user data (in our case the instance struct)
+ * @note we use a Message Queue FIFO buffer to store the incoming MIDI messages
+ */
+static void midi1_serial_isr_callback(const struct device *dev, void *user_data)
+{
+	uint8_t c;
+	
+	/*
+	 * We can take the pointer to the uart from both 'dev' and 'user_data'
+	 * decided for readability to take it from the 'midi1_serial_config'
+	 * struct as we use that throughout the driver.
+	 */
+	const struct device *midi1_serial = (const struct device *)user_data;
+	// const struct device *midi1_serial = dev;
+
+	const struct midi1_serial_config *cfg = midi1_serial->config;
+	struct midi1_serial_data *data = midi1_serial->data;
+	
+	if (!uart_irq_update(cfg->uart)) {
+		return;
+	}
+	if (!uart_irq_rx_ready(cfg->uart)) {
+		return;
+	}
+	
+	/* read until FIFO empty */
+	while (uart_fifo_read(cfg->uart, &c, 1) == 1) {
+		if (k_msgq_put(&data->msgq, &c, K_NO_WAIT) != 0) {
+			/*
+			 * Message queue is full
+			 * TODO: add ERROR logging
+			 * right now we drop MIDI packets
+			 * as the application is not processing
+			 * the incoming packets.  We can't keep
+			 * buffering forever so we drop messages.
+			 */
+		}
+	}
+}
 
 /**
  * Inits the serial USART ISR routine so we start processing incoming MIDI.
@@ -117,51 +166,28 @@ int midi1_serial_init(const struct device *dev)
 	data->last_status_tx_time = k_uptime_get_32() - 500U;
 
 	/* If a null pointer is given reassign to the NO OP function */
-	if (!data->note_on) {
-		data->note_on = midi1_noop_note_on;
-	}
-	if (!data->note_off) {
-		data->note_off = midi1_noop_note_off;
-	}
-	if (!data->control_change) {
-		data->control_change = midi1_noop_control_change;
-	}
-	if (!data->realtime) {
-		data->realtime = midi1_noop_realtime;
-	}
-	if (!data->pitchwheel) {
-		data->pitchwheel = midi1_noop_pitchwheel;
-	}
-	if (!data->program_change) {
-		data->program_change = midi1_noop_program_change;
-	}
-	if (!data->channel_aftertouch) {
-		data->channel_aftertouch = midi1_noop_channel_aftertouch;
-	}
-	if (!data->poly_aftertouch) {
-		data->poly_aftertouch = midi1_noop_poly_aftertouch;
-	}
-	if (!data->sysex_start) {
-		data->sysex_start = midi1_noop_sysex_start;
-	}
-	if (!data->sysex_data) {
-		data->sysex_data = midi1_noop_sysex_data;
-	}
-	if (!data->sysex_stop) {
-		data->sysex_stop = midi1_noop_sysex_stop;
-	}
-
+	data->cb.note_on = midi1_noop_note_on;
+	data->cb.note_off = midi1_noop_note_off;
+	data->cb.control_change = midi1_noop_control_change;
+	data->cb.realtime = midi1_noop_realtime;
+	data->cb.pitchwheel = midi1_noop_pitchwheel;
+	data->cb.program_change = midi1_noop_program_change;
+	data->cb.channel_aftertouch = midi1_noop_channel_aftertouch;
+	data->cb.poly_aftertouch = midi1_noop_poly_aftertouch;
+	data->cb.sysex_start = midi1_noop_sysex_start;
+	data->cb.sysex_data = midi1_noop_sysex_data;
+	data->cb.sysex_stop = midi1_noop_sysex_stop;
+	
 	/* Assign a MSQ to this instance */
 	k_msgq_init(&data->msgq, data->msgq_buffer, MSG_SIZE, MSGQ_SIZE);
-
 
 	if (!device_is_ready(cfg->uart)) {
 		printk("UART device not found!");
 		return -1;
 	}
 	int ret = uart_irq_callback_user_data_set(cfg->uart,
-	                                          midi1_serial_isr_callback,
-	                                          data);
+						  midi1_serial_isr_callback,
+						  (void *)dev);
 	if (ret < 0) {
 		if (ret == -ENOTSUP) {
 			printk
@@ -194,37 +220,37 @@ int midi1_serial_register_callbacks(const struct device *dev,
 
 	/* We want to do a deep check on every callback */
 	if (cb->note_on){
-		(data->cb)->note_on = cb->note_on;
+		data->cb.note_on = cb->note_on;
 	}
 	if (cb->note_off) {
-		(data->cb)->note_off = cb->note_off;
+		data->cb.note_off = cb->note_off;
 	}
 	if (cb->control_change){
-		(data->cb)->control_change = cb->control_change;
+		data->cb.control_change = cb->control_change;
 	}
 	if (cb->pitchwheel){
-		(data->cb)->pitchwheel = cb->pitchwheel;
+		data->cb.pitchwheel = cb->pitchwheel;
 	}
 	if (cb->program_change){
-		(data->cb)->program_change = cb->program_change;
+		data->cb.program_change = cb->program_change;
 	}
 	if (cb->channel_aftertouch){
-		(data->cb)->channel_aftertouch = cb->channel_aftertouch;
+		data->cb.channel_aftertouch = cb->channel_aftertouch;
 	}
 	if (cb->poly_aftertouch){
-		(data->cb)->poly_aftertouch = cb->poly_aftertouch;
+		data->cb.poly_aftertouch = cb->poly_aftertouch;
 	}
 	if (cb->realtime){
-		(data->cb)->realtime = cb->realtime;
+		data->cb.realtime = cb->realtime;
 	}
 	if (cb->sysex_start){
-		(data->cb)->sysex_start = cb->sysex_start;
+		data->cb.sysex_start = cb->sysex_start;
 	}
 	if (cb->sysex_data){
-		(data->cb)->sysex_data = cb->sysex_data;
+		data->cb.sysex_data = cb->sysex_data;
 	}
 	if (cb->sysex_stop){
-		(data->cb)->sysex_stop = cb->sysex_stop;
+		data->cb.sysex_stop = cb->sysex_stop;
 	}
 
 	return 0;
@@ -463,47 +489,7 @@ void midi1_sysex_stop(const struct device *dev)
  |__/
  */
 
-/**
- * @brief MIDI Byte Receive parser implementation - Interrupt Service Routine
- *
- * @param device device pointer
- * @param user_data user data (in our case the instance struct)
- * @note we use a Message Queue FIFO buffer to store the incoming MIDI messages
- */
-static void midi1_serial_isr_callback(const struct device *dev, void *user_data)
-{
-	uint8_t c;
 
-	/*
-	 * We can take the pointer to the uart from both 'dev' and 'user_data'
-	 * decided for readability to take it from the 'midi1_serial_config'
-	 * struct as we use that throughout the driver.
-	 */
-	const struct device *midi1_serial = (const struct device *)user_data;
-	const struct midi1_serial_config *cfg = midi1_serial->config;
-	struct midi1_serial_data *data = midi1_serial->data;
-
-	if (!uart_irq_update(cfg->uart)) {
-		return;
-	}
-	if (!uart_irq_rx_ready(cfg->uart)) {
-		return;
-	}
-
-	/* read until FIFO empty */
-	while (uart_fifo_read(cfg->uart, &c, 1) == 1) {
-		if (k_msgq_put(&data->msgq, &c, K_NO_WAIT) != 0) {
-			/*
-			 * Message queue is full
-			 * TODO: add ERROR logging
-			 * right now we drop MIDI packets
-			 * as the application is not processing
-			 * the incoming packets.  We can't keep
-			 * buffering forever so we drop messages.
-			 */
-		}
-	}
-}
 
 void midi1_serial_receiveparser(const struct device *dev)
 {
@@ -542,7 +528,7 @@ void midi1_serial_receiveparser(const struct device *dev)
 		 * decide if e.g. a clock is received or a RT_STOP etc..
 		 */
 		if (c >= SYSTEM_REALTIME_MASK) {
-			data->realtime(c);
+			data->cb.realtime(c);
 			return;
 		} else {
 			/* When a new status byte arrives inside Sysex
@@ -559,11 +545,11 @@ void midi1_serial_receiveparser(const struct device *dev)
 				return;
 			} else if (c == SYSTEM_EXCLUSIVE_START) {
 				data->in_sysex = true;
-				data->sysex_start();
+				data->cb.sysex_start();
 				return;
 			} else if (c == SYSTEM_EXCLUSIVE_END) {
 				data->in_sysex = false;
-				data->sysex_stop();
+				data->cb.sysex_stop();
 				return;
 			}
 			/*
@@ -573,7 +559,7 @@ void midi1_serial_receiveparser(const struct device *dev)
 		}
 	} else {                /* Bit 7 == 0   (data) */
 		if (data->in_sysex) {
-			data->sysex_data(c);
+			data->cb.sysex_data(c);
 			/* Stop processing the rest when in SysEx */
 			return;
 		}
@@ -597,38 +583,44 @@ void midi1_serial_receiveparser(const struct device *dev)
 					 * timbre of the note off.
 					 * MIDI1.0 spec page A2.
 					 */
-					data->note_off(chan,
+					printk("CB: data=%p &cb=%p note_on=%p\n",
+					       data, &data->cb, data->cb.note_on);
+
+					data->cb.note_off(chan,
 					               data->midi_c2,
 					               data->midi_c3);
 					return;
 				} else {
-					data->note_on(chan,
+					data->cb.note_on(chan,
 					              data->midi_c2,
 					              data->midi_c3);
 					return;
 				}
 				return;
 			} else if (common == C_NOTE_OFF) {
-				data->note_off(chan,
+				printk("CB: data=%p &cb=%p note_off=%p\n",
+				       data, &data->cb, data->cb.note_off);
+				data->cb.note_off(chan,
 				               data->midi_c2, data->midi_c3);
 				return;
 			} else if (common == C_PITCH_WHEEL) {
-				data->pitchwheel(chan,
+				data->cb.pitchwheel(chan,
 				                 data->midi_c2, data->midi_c3);
 				return;
 			} else if (common == C_PROGRAM_CHANGE) {
-				data->program_change(chan, data->midi_c2);
+				data->cb.program_change(chan, data->midi_c2);
 				return;
 			} else if (common == C_POLYPHONIC_AFTERTOUCH) {
-				data->poly_aftertouch(chan,
+				data->cb.poly_aftertouch(chan,
 				                      data->midi_c2,
 				                      data->midi_c3);
 				return;
 			} else if (common == C_CHANNEL_AFTERTOUCH) {
-				data->channel_aftertouch(chan, data->midi_c2);
+				data->cb.channel_aftertouch(chan,
+							     data->midi_c2);
 				return;
 			} else if (common == C_CONTROL_CHANGE) {
-				data->control_change(chan,
+				data->cb.control_change(chan,
 				                     data->midi_c2,
 				                     data->midi_c3);
 				return;

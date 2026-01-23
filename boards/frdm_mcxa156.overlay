@@ -9,150 +9,22 @@
  * @date 20260102
  * SPDX-License-Identifier: Apache-2.0
  */
-&gpio3 {
-	status ="okay"; 
-};
-
-/* Enable SPI on mikroBUS */
-&lpspi0 {
-    status = "okay";
-    pinctrl-0 = <&pinmux_lpspi0>;
-    pinctrl-names = "default";
-};
-
 
 /*
  * Classic MIDI1.0 over DIN5 plug.
- * note on the FRDM-MCXC242 the LPUART0 is shared with the MCU_LINK.
- * so be aware!   If you send printk's you need to set the baud rate
- * to 31250 from the default 115200 to see something usefull
- *
- * Also note anything you send out to the MCU_LINK will end up on the MIDI
- * port!
- *
+ * On the MCXA156 the mikroBUS socket J1 is on LPUART1
  */
-/* On the MCXA156 the mikroBUS socket J1 is on LPUART1 */
 &lpuart1 {
 	status = "okay";
 	/* Set it to the MIDI baud rate */
 	current-speed = <31250>;
 };
 
-/* We are using the periodic interrupt timer  (PIT) so switch it on */
-/* DOES NOT EXIST on this board */
-/*
-&pit0 {
-	status = "okay";
-};
-*/
-
-/* Let's make sure both are enabled and act in the same way as the pit0 */
-&ctimer0 {
-	status = "okay";
-	/* Divide 96 MHz by 4 → 24 MHz timer */
-	prescale = <3>;
-};
-&ctimer1 {
-	status = "okay";
-	/* Divide 96 MHz by 4 → 24 MHz timer */
-	prescale = <3>;
-};
-
-/*****************************************************************************/
-
 / {
-	chosen {
-		zephyr,display = &sdd1331_mikrobus;
-};
-	usb_midi: usb_midi {
-		compatible = "zephyr,midi2-device";
-		status = "okay";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		label = "Zephyr USB-MIDI";
-
-		midi_in_out@0 {
-			reg = <0 1>;
-			protocol = "midi1-up-to-128b";
-			label = "MIDI-IN-OUT";
-		};
-	};
-	leds {
-		/* Need to check pin numbers  !!! */
-		compatible = "gpio-leds";
-		/* Everytime a 0xF8 is sent we toggle pin C8  */
-		freq_out: freq_out {
-			/* gpios = <&gpioc 8 GPIO_ACTIVE_HIGH>; */
-			gpios = <&gpio3 1 GPIO_ACTIVE_HIGH>;
-			label = "FREQ_GEN_OUT";
-		};
-		/* Everytime a 0xF8 is received we toggle pin A12  */
-		rx_midi_clk: rx_midi_clk{
-			/* gpios = <&gpioa 12 GPIO_ACTIVE_HIGH>; */
-			gpios = <&gpio3 31 GPIO_ACTIVE_HIGH>;
-			label = "FREQ_RX_OUT";
-		};
-	};
-	aliases {
-		midi = &lpuart1;
-		counterch0 = &ctimer0;
-		counterch1 = &ctimer1;
-	};
-	
-	/* The Display */
-	mipi_dbi_sdd1331_mikrobus {
-		status = "okay";
-		compatible = "zephyr,mipi-dbi-spi";
-		spi-dev = <&lpspi0>;
-		write-only;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		/* mikroBUS GPIOs used for SPI */
-		/* mikroBUS INT (pin 8) */
-		dc-gpios = <&gpio3 19 GPIO_ACTIVE_HIGH>;
-		/* mikroBUS RST (pin 6) */
-		reset-gpios = <&gpio3 29 GPIO_ACTIVE_LOW>;
-
-		/* Display selected via mikroBUS default CS  */
-		sdd1331_mikrobus: sd1331@0 {
-			status = "okay";
-			compatible = "solomon,ssd1331";
-			reg = <0>;
-			mipi-max-frequency = <8000000>;
-			width = <96>;
-			height = <64>;
-			mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
-			/* Default: 0 (no vertical shift) */
-			display-offset = <1>;
-			/* Default: 0 (start at first RAM line) */
-			start-line = <0>;
-			/* Default: height - 1 → 64 - 1 = 63 */
-			multiplex-ratio = <63>;
-			/* Default: Phase1=1, Phase2=3 → 0x31 */
-			phase-length = <0x31>;
-			/* Default: highest internal oscillator */
-			oscillator-freq = <0xF0>;
-			/* Default: 100 clocks */
-			precharge-time-a = <0x64>;
-			/* Default: 120 clocks */
-			precharge-time-b = <0x78>;
-			 /* Default: 100 clocks */
-			precharge-time-c = <0x64>;
-			/* Default: 0x3A (recommended) */
-			precharge-voltage = <0x3A>;
-			/* Default: 0x3E (recommended) */
-			vcomh-voltage = <0x3E>;
-			/* Default: max master current */
-			current-att = <0x0F>;
-			 /* Default: RGB565, normal scan, COM split */
-
-			 /* Noise */
-			/* remap-value = <0x52>; */
-			remap-value = <0x60>;
-			/* Works with LVGL */
-			remap-value = <0x72>; 
-		};
-	};
+	midi0: midi0 {
+                status = "okay";
+                compatible = "midi1_serial";
+                uart = <&lpuart1>;
+        };	
 };
 

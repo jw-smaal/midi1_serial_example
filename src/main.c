@@ -76,17 +76,25 @@ void sysex_stop_handler(void)
 
 /* ---------------------------- THREADS ------------------------------------ */
 
-/*
- * MIDI1.0 5PIN DIN serial receive parser thread.
+/**
+ * serial receive parser thread - receiveparser keeps reading data
+ * filled by the ISR and then calls callbacks. 
  */
 void midi1_serial_receive_thread(void)
 {
-	while(1){
+	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
 	
+	if (!device_is_ready(midi)) {
+		printk("receive_thread MIDI1-Serial device not ready\n");
+		return 0;
+	}
+	while(1){
+		/* As this call is blocking no need to sleep in between */
+		midi1_serial_receiveparser(midi);
 	}
 }
-//K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
-//               midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
+               midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
 
 
 /**
@@ -97,10 +105,10 @@ int main(void) {
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
 
         if (!device_is_ready(midi)) {
-                printk("MIDI1-Serial device not ready\n");
+                printk("main_thread MIDI1-Serial device not ready\n");
                 return 0;
         }
-
+	
         while (1) {
 		/* Running status is used < 300 ms */ 
 		for (uint8_t value = 0; value < 16; value++) {
@@ -127,7 +135,6 @@ int main(void) {
 			k_sleep(K_MSEC(100));
 		}
         }
-
         return 0;
 }
 /* EOF */

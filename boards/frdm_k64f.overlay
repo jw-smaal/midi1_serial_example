@@ -16,69 +16,10 @@
  * Classic MIDI1.0 over DIN5 plug
  */
 &uart3 {
-    status = "okay";
-    /* Set it to the MIDI baud rate */
-    current-speed = <31250>;
-};
-
-/* 
- * Because on the FRDM_K64F each channel has it's own IRQ we need to be 
- * specific here can't just enable pit0 and hope for the best. 
- */ 
-&pit0 {
-    status = "okay";
-};
-
-&pit0_channel0 {
-    status = "okay";
-};
-
-&pit0_channel1 {
-    status = "okay";
-};
-
-/*
- * Enable these GPIO's' for the scope outputs I use this to
- * measure the clock sync on ingress and egress.
- */
-&gpiob {
-    status = "okay";
-};
-
-&gpioc {
-    status = "okay";
-};
-
-&i2c0 {
 	status = "okay";
-	clock-frequency = <I2C_BITRATE_FAST>;
-
-	ssd1306: ssd1306@3c {
-		status = "okay";
-		compatible = "solomon,ssd1306fb";
-		reg = <0x3c>;
-		label = "SSD1306";
-		width = <128>;
-		height = <64>;
-		segment-offset = <0>; 
-		page-offset = <0>;
-		display-offset = <0>;
-		multiplex-ratio = <63>;
-		/* Had to enable this to mirror the image */ 
-		com-invdir;
-		/* prechargep = <0x22>; */
-		/* Used for the SH1106 */
-		/* prechargep = <0x1F>; */
-		/* Used for the SSD1306 */
-		prechargep = <0xF1>;
-		/* The next one was required to flip the image */
-		segment-remap;
-	        inversion-on;
-	        /* Critical part on the SSD1306 don't make this too long */
-	        ready-time-ms = <100>;
-	};
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
 };
-
 
 
 / {
@@ -93,42 +34,6 @@
                 compatible = "midi1_serial";
                 uart = <&lpuart1>;
         };
-         */ 
-	usb_midi: usb_midi {
-		compatible = "zephyr,midi2-device";
-		status = "okay";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		label = "Zephyr USB-MIDI Sample";
-
-		midi_in_out@0 {
-			reg = <0 1>;
-			protocol = "midi1-up-to-128b";
-			label = "MIDI-IN-OUT";
-		};
-	};
-	leds {
-		compatible = "gpio-leds";
-		/* Everytime a 0xF8 is sent we toggle pin PTC3  */
-		freq_out: freq_out {
-			gpios = <&gpioc 3 GPIO_ACTIVE_HIGH>;
-			label = "FREQ_GEN_OUT";
-		};
-		/* Everytime a 0xF8 is received we toggle pin PTB9  */
-		rx_midi_clk: rx_midi_clk{
-			gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;
-			label = "FREQ_RX_OUT";
-		};
-	};
-    aliases {
-        i2c0 = &i2c0;
-        midi = &uart3;
-	counterch0 = &pit0_channel0;
-	counterch1 = &pit0_channel1;
-    };
-    chosen {
-	zephyr,display = &ssd1306;
-    };
 };
 
 
