@@ -34,7 +34,7 @@
 #include "midi1.h"
 #include "midi1_serial.h"
 
-#define MIDI1_SERIAL_DEBUG 1
+#define MIDI1_SERIAL_DEBUG 0
 
 
 /*
@@ -583,9 +583,6 @@ void midi1_serial_receiveparser(const struct device *dev)
 					 * timbre of the note off.
 					 * MIDI1.0 spec page A2.
 					 */
-					printk("CB: data=%p &cb=%p note_on=%p\n",
-					       data, &data->cb, data->cb.note_on);
-
 					data->cb.note_off(chan,
 					               data->midi_c2,
 					               data->midi_c3);
@@ -598,8 +595,6 @@ void midi1_serial_receiveparser(const struct device *dev)
 				}
 				return;
 			} else if (common == C_NOTE_OFF) {
-				printk("CB: data=%p &cb=%p note_off=%p\n",
-				       data, &data->cb, data->cb.note_off);
 				data->cb.note_off(chan,
 				               data->midi_c2, data->midi_c3);
 				return;

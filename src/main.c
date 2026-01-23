@@ -13,8 +13,10 @@
 #include <zephyr/sys/printk.h>
 
 /* Moved to ../drivers */
-//#include "midi1.h"
 #include "midi1_serial.h"
+
+/* Some helpers to print out the note name */
+#include "note.h"
 
 /**
  * @brief Callbacks/delegates for 'midi1_serial.c' after parsing MIDI1.0
@@ -27,12 +29,16 @@
  */
 void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
-	printk("Note  on: %03d %03d\n", note, velocity);
+	printk("Note  on: %s %03d %03d\n", noteToTextWithOctave(note, false),
+					   note,
+					   velocity);
 }
 
 void note_off_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
-	printk("Note off: %03d %03d\n", note, velocity);
+	printk("Note off: %s %03d %03d\n", noteToTextWithOctave(note, false),
+					   note,
+					   velocity);
 }
 
 void pitchwheel_handler(uint8_t channel, uint8_t lsb, uint8_t msb)
@@ -77,17 +83,29 @@ void sysex_stop_handler(void)
 /* ---------------------------- THREADS ------------------------------------ */
 
 /**
- * serial receive parser thread - receiveparser keeps reading data
- * filled by the ISR and then calls callbacks. 
+ * Serial receive parser thread - receiveparser keeps reading data
+ * filled by the ISR and then calls callbacks.
  */
 void midi1_serial_receive_thread(void)
 {
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
 	
+	/*
+	 * Set the callbacks in the driver to our own callbacks.  Pointers
+	 * left null are not used in the callbacks.
+	 */
+	struct midi1_serial_callbacks my_cb = {
+		.note_on = note_on_handler,
+		.note_off = note_off_handler
+	};
+	midi1_serial_register_callbacks(midi, &my_cb);
+	
+	
 	if (!device_is_ready(midi)) {
-		printk("receive_thread MIDI1-Serial device not ready\n");
-		return 0;
+		printk("receive_thread Serial MIDI1 device not ready\n");
+		return;
 	}
+	
 	while(1){
 		/* As this call is blocking no need to sleep in between */
 		midi1_serial_receiveparser(midi);
@@ -102,36 +120,60 @@ K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
  * and the rest of threads keeps running just fine.
  */
 int main(void) {
+	/* Boiler plate start */
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
 
         if (!device_is_ready(midi)) {
-                printk("main_thread MIDI1-Serial device not ready\n");
+                printk("Serial MIDI1 device not ready\n");
                 return 0;
         }
+	/* You can either use the pointer to the API or the public interface */
+	const struct midi1_serial_api *mid = midi->api;
+	
+	/* Boiler plate end */
+	
+	
+	/* Using the API pointer */
+	mid->note_on(midi, CH4, 1, 60);
+	k_sleep(K_MSEC(290));
+	
+	/* Using the public interface for the driver same effect */
+	midi1_serial_note_off(midi, CH4, 1, 60);
+	k_sleep(K_MSEC(290));
+	
 	
         while (1) {
 		/* Running status is used < 300 ms */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi1_serial_control_change(midi, CH16, 1, value);   /* CC1 sweep */
+			/* CC1 sweep */
+			//midi1_serial_control_change(midi, CH16, 1, value);
+			mid->control_change(midi, CH16, 1, value);
 			k_sleep(K_MSEC(290));
 		}
 		/* Running status is not used > 300 ms */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi1_serial_note_on(midi, CH7, value, 100);   /* note sweep */
+			/* note sweep */
+			//midi1_serial_note_on(midi, CH7, value, 100);
+			mid->note_on(midi, CH7, value, 100);
 			k_sleep(K_MSEC(310));
 		}
 		/* Send as quickly as the uart poll out will allow */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi1_serial_note_off(midi, CH7, value, 100);   /* note off sweep */
+			/* note off sweep */
+			//midi1_serial_note_off(midi, CH7, value, 100);
+			mid->note_off(midi, CH7, value, 100);
 		}
 		for (uint8_t value = 0; value < 16; value++) {
-			midi1_serial_start(midi);
+			// midi1_serial_start(midi);
+			mid->start(midi);
 			k_sleep(K_MSEC(100));
 			for (uint8_t i =0; i < 128; i++) {
-				midi1_serial_timingclock(midi);
+				// midi1_serial_timingclock(midi);
+				mid->timingclock(midi);
 				k_sleep(K_MSEC(1));
 			}
-			midi1_serial_stop(midi);
+			// midi1_serial_stop(midi);
+			mid->stop(midi);
 			k_sleep(K_MSEC(100));
 		}
         }
