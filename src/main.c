@@ -104,27 +104,26 @@ int main(void) {
         while (1) {
 		/* Running status is used < 300 ms */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi_serial_control_change(midi, CH16, 1, value);   /* CC1 sweep */
+			midi1_serial_control_change(midi, CH16, 1, value);   /* CC1 sweep */
 			k_sleep(K_MSEC(290));
 		}
 		/* Running status is not used > 300 ms */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi_serial_note_on(midi, CH7, value, 100);   /* note sweep */
+			midi1_serial_note_on(midi, CH7, value, 100);   /* note sweep */
 			k_sleep(K_MSEC(310));
 		}
-		/* Running status is used < 300 ms */ 
+		/* Send as quickly as the uart poll out will allow */ 
 		for (uint8_t value = 0; value < 16; value++) {
-			midi_serial_note_off(midi, CH7, value, 100);   /* note sweep */
-			k_sleep(K_MSEC(20));
+			midi1_serial_note_off(midi, CH7, value, 100);   /* note off sweep */
 		}
 		for (uint8_t value = 0; value < 16; value++) {
-			midi_serial_start(midi); 
+			midi1_serial_start(midi);
 			k_sleep(K_MSEC(100));
 			for (uint8_t i =0; i < 128; i++) {
-				midi_serial_timingclock(midi); 
+				midi1_serial_timingclock(midi);
 				k_sleep(K_MSEC(1));
 			}
-			midi_serial_stop(midi); 
+			midi1_serial_stop(midi);
 			k_sleep(K_MSEC(100));
 		}
         }

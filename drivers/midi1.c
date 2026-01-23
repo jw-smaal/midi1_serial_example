@@ -150,14 +150,11 @@ struct midi_ump midi1_reset(void)
  * i.e. multiplied by 1000000
  * Done so we can run it on a ARM M0+ without a FPU and the need
  * to compile in single precision math.
- * By Jan-Willem Smaal <usenet@gispen.org> 20251214
- *
  * Because microseconds is a bit too course for timing some of these
  * calculations will be slightly off.
  *
  * It's better to use clock ticks.  so the spbm_to_ticks 
  */
-
 uint32_t sbpm_to_us_interval(uint16_t sbpm)
 {
 	if (sbpm == 0) {

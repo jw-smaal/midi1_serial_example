@@ -39,8 +39,8 @@ Running
 * Be carefull with logging to the console depending on the board
   wireing this may go out the MIDI1.0 port.   
 * The popular Arduino MIDI shields are not designed for 3.3V drive.  With 
-  lower power uarts you are adviced to use an output buffer that can sink the
-  5 mA current loop.    
+  lower power lpuarts you are adviced to use an output buffer that can sink
+  the 5 mA current loop.  See the MIDI1.0 recommended circuit for 3.3V.
 
 ---------------------------------------
 License
