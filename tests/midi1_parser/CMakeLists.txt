@@ -9,7 +9,9 @@ target_include_directories(app PRIVATE
 )
 
 target_sources(app PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../drivers/midi1_serial.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/note.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/test_midi1_parser.c
 )
+
 
