@@ -28,12 +28,6 @@
                 compatible = "midi1_serial";
                 uart = <&uart3>;
         };
-	/*
-        midi1: midi1 {
-                status = "okay";
-                compatible = "midi1_serial";
-                uart = <&lpuart1>;
-        };
 };
 
 
