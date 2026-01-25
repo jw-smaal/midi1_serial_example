@@ -108,7 +108,7 @@ void midi1_serial_receive_thread(void)
 		.sysex_data = sysex_data_handler,
 		.sysex_stop = sysex_stop_handler
 	};
-	// midi1_serial_register_callbacks(midi, &my_cb);
+	/* midi1_serial_register_callbacks(midi, &my_cb); */
 	mid->register_callbacks(midi, &my_cb);
 
 	while (1) {

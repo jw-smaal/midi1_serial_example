@@ -17,6 +17,8 @@
  * specifications as possible. 
  *
  * The MIDI USART implementation uses the a ring buffer and UART driver.
+ * Because Zephyr's uart_poll_out() does NOT return anything there is no
+ * error to convey to the caller this is why most API calls return void.
  *
  * Originally created in 2014 for AVR MCU's ported to Zephyr RTOS in 2024.
  * @author Jan-Willem Smaal <usenet@gispen.org>
@@ -290,7 +292,13 @@ void midi1_serial_note_on(const struct device *dev,
 	const struct midi1_serial_config *cfg = dev->config;
 	struct midi1_serial_data *data = dev->data;
 	uint32_t now = k_uptime_get_32();
-
+	/* Channel is actually a nibble so mask it */
+	channel = channel & 0x0F;
+	if (key > 127 || velocity > 127 ) {
+		/* Silently ignore bogus value's */
+		return;
+	}
+	
 	if (midi1_need_status(data, C_NOTE_ON | channel)) {
 		uart_poll_out(cfg->uart, C_NOTE_ON | channel);
 		data->running_status_tx = C_NOTE_ON | channel;
@@ -308,7 +316,12 @@ void midi1_serial_note_off(const struct device *dev,
 	const struct midi1_serial_config *cfg = dev->config;
 	struct midi1_serial_data *data = dev->data;
 	uint32_t now = k_uptime_get_32();
-
+	channel = channel & 0x0F;
+	if (key > 127 || velocity > 127 ) {
+		/* Silently ignore bogus value's */
+		return;
+	}
+	
 	if (midi1_need_status(data, C_NOTE_OFF | channel)) {
 		uart_poll_out(cfg->uart, C_NOTE_OFF | channel);
 		data->running_status_tx = C_NOTE_OFF | channel;
@@ -327,7 +340,12 @@ void midi1_serial_control_change(const struct device *dev,
 	const struct midi1_serial_config *cfg = dev->config;
 	struct midi1_serial_data *data = dev->data;
 	uint32_t now = k_uptime_get_32();
-
+	channel = channel & 0x0F;
+	if (controller > 127 || val > 127 ) {
+		/* Silently ignore bogus value's */
+		return;
+	}
+	
 	if (midi1_need_status(data, C_CONTROL_CHANGE | channel)) {
 		uart_poll_out(cfg->uart, C_CONTROL_CHANGE | channel);
 		data->running_status_tx = C_CONTROL_CHANGE | channel;
@@ -347,7 +365,12 @@ void midi1_serial_channelaftertouch(const struct device *dev,
 	const struct midi1_serial_config *cfg = dev->config;
 	struct midi1_serial_data *data = dev->data;
 	uint32_t now = k_uptime_get_32();
-
+	channel = channel & 0x0F;
+	if (val > 127 ) {
+		/* Silently ignore bogus value's */
+		return;
+	}
+	
 	if (midi1_need_status(data, C_CHANNEL_AFTERTOUCH | channel)) {
 		uart_poll_out(cfg->uart, C_CHANNEL_AFTERTOUCH | channel);
 		data->running_status_tx = C_CHANNEL_AFTERTOUCH | channel;
@@ -377,7 +400,12 @@ void midi1_serial_pitchwheel(const struct device *dev,
 	const struct midi1_serial_config *cfg = dev->config;
 	struct midi1_serial_data *data = dev->data;
 	uint32_t now = k_uptime_get_32();
-
+	channel = channel & 0x0F;
+	/* 16384 is the 2^14 which is the maximum pitch bend value */
+	if (val > PITCHWHEEL_MAX ) {
+		/* Silently ignore bogus value's */
+		return;
+	}
 	if (midi1_need_status(data, C_PITCH_WHEEL | channel)) {
 		uart_poll_out(cfg->uart, C_PITCH_WHEEL | channel);
 		data->running_status_tx = C_PITCH_WHEEL | channel;
@@ -387,7 +415,7 @@ void midi1_serial_pitchwheel(const struct device *dev,
 
 	/* Value is 14 bits so need to shift 7 */
 	uart_poll_out(cfg->uart, val & ~(CHANNEL_VOICE_MASK));  /* LSB */
-	uart_poll_out(cfg->uart, (val >> 7) & ~(CHANNEL_VOICE_MASK));   /* MSB */
+	uart_poll_out(cfg->uart, (val >> 7) & ~(CHANNEL_VOICE_MASK)); /* MSB */
 	data->running_status_tx_count++;
 }
 
