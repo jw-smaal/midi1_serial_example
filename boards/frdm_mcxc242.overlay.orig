@@ -35,23 +35,31 @@
 	status = "okay";
 	clock-frequency = <I2C_BITRATE_FAST>;
 
-	sh1122: sh1122@3c {
+	sh1122: sh1122@7a {
 		status = "okay";
 		compatible = "sinowealth,sh1122";
-		reg = <0x3c>;
+		reg = <0x7a>;
+		oscillator-freq = <0>;
 		start-line = <0>;
 		label = "SH1122";
 		width = <256>;
 		height = <64>;
-		display-offset = <0>;
-		multiplex-ratio = <63>;
-		oscillator-freq = <0x90>;
-		start-line = <0>;
-		phase-length = <0x31>;
-		vcomh-voltage = <0x28>;
-		precharge-voltage = <0x22>;
-		dc-dc = <1>;
-		low-voltage = <0x0>;
+		segment-offset = <2>;
+		page-offset = <0>;
+		display-offset = <63>;
+		multiplex-ratio = <255>;
+		/* prechargep = <0x22>; */
+		prechargep = <0x1F>;
+		/* The next one was required to flip the image */
+		segment-remap;
+		segment-remap = <0>;
+	        page-offset = <0>;
+	        prechargep = <0>;
+	        precharge-voltage = <0>;
+	        ready-time-ms = <100>;
+	        phase-length = <0>;
+	        vcomh-voltage = <0>;
+	        dc-dc = <0>;
 	};
 };
 

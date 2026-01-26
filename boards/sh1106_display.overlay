@@ -1,0 +1,40 @@
+/** 
+ * @brief overlay file for the SH1122 display driver
+ * @author Jan-Willem Smaal <usenet@gispen.org>
+ */
+
+&i2c1{
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	sh1106: ssd1306@3c {
+		status = "okay";
+		// compatible = "solomon,ssd1306fb";
+		compatible = "sinowealth,sh1106";
+		reg = <0x3c>;
+		label = "SH1106";
+		width = <128>;
+		height = <64>;
+		segment-offset = <2>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <63>;
+		/* Had to enable this to mirror the image */ 
+		com-invdir;
+		/* prechargep = <0x22>; */
+		prechargep = <0x1F>;
+		/* The next one was required to flip the image */
+		segment-remap;
+	        /*	inversion-on; */
+	        ready-time-ms = <100>;
+	};
+};
+
+
+/* ---------------------------------------------------------------- */
+
+/ {
+	chosen {
+                zephyr,display = &sh1106; 
+        };
+};

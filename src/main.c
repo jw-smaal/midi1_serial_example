@@ -11,6 +11,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/printk.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/display.h>
+#include <zephyr/display/cfb.h>
 
 /* Moved to ../drivers */
 #include "midi1_serial.h"
@@ -120,6 +123,53 @@ void midi1_serial_receive_thread(void)
 K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
                 midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
 
+
+const struct device *display = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+const struct device *cfb = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+
+int main_display_init(void)
+{
+	if (!device_is_ready(display)) {
+		printk("Display not ready\n");
+		return -1;
+	}
+	
+	if (!device_is_ready(cfb)) {
+		printk("CFB not ready\n");
+		return -1;
+	}
+	
+	/* Turn on the panel */
+	display_blanking_off(display);
+	
+	/* Initialize the character framebuffer */
+	if (cfb_framebuffer_init(cfb)) {
+		printk("CFB init failed\n");
+		return -1;
+	}
+	
+	/* Clear the framebuffer */
+	cfb_framebuffer_clear(cfb, true);
+	
+	/* Select font index 0 (usually 8x8) */
+	cfb_framebuffer_set_font(cfb, 0);
+	
+	/* Print default text */
+	cfb_print(cfb, "MIDIsync JWS", 0, 0);
+	cfb_print(cfb, "xxx.xx BPM  ", 0, 16);
+	cfb_print(cfb, "xxx.xx PLL  ", 0, 32);
+	cfb_print(cfb, "            ", 0, 48);
+	
+	/* Push framebuffer to display */
+	cfb_framebuffer_invert(cfb);
+	cfb_framebuffer_finalize(cfb);
+	
+	k_msleep(100);
+	
+	return 0;
+}
+
+
 /**
  * Main thread - this may actually terminate normally (code 0) in zephyr.
  * and the rest of threads keeps running just fine.
@@ -134,6 +184,13 @@ int main(void)
 	/* You can either use the pointer to the API or the public interface */
 	const struct midi1_serial_api *mid = midi->api;
 
+	
+	/*
+	 * Don't start the display straight after powerup (needs some time
+	 * to settle
+	 */
+	main_display_init();
+	
 	/* Using the API pointer */
 	mid->note_on(midi, CH4, 1, 60);
 	k_sleep(K_MSEC(290));

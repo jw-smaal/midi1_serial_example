@@ -1,12 +1,12 @@
 /*
- * @brief FRDM-MCXW242 board configuration for the MIDI1.0 demo 
+ * @brief FRDM-MCXW71 board configuration for the MIDI1.0 demo
  * @note
  *
  * @author Jan-Willem Smaal
  * @date 20250101
  * SPDX-License-Identifier: Apache-2.0
  */
- 
+
 /*
  * Classic MIDI1.0 over DIN5 plug.
  * note on the FRDM-MCXC242 the LPUART0 is shared with the MCU_LINK.
@@ -30,10 +30,15 @@
 	current-speed = <31250>;
 };
 
-/* SH1122  */
-&i2c1 {
-	status = "okay";
-	clock-frequency = <I2C_BITRATE_FAST>;
+/*
+ * This is the I2C module connected via the MIKRO bus 
+ */
+&lpi2c1 {
+ 	status = "okay";
+	pinctrl-0 = <&pinmux_lpi2c1>;
+	pinctrl-names = "default";
+	clock-frequency = <I2C_BITRATE_FAST_PLUS>;
+	/* 	clock-frequency = <I2C_BITRATE_FAST>; */
 
 	sh1122: sh1122@3c {
 		status = "okay";
@@ -55,9 +60,22 @@
 	};
 };
 
+/* Overlay enabling LPIT0 channel 0 */
+/*
+&lpit0 {
+    status = "okay";
 
-/* ---------------------------------------------------------------- */
+    lpit1_channel0: lpit_channel@0 {
+        status = "okay";
+    };
+};
+*/
+
+
 / {
+	aliases {
+		i2c0 = &lpi2c1;
+	};
 	midi0: midi0 {
 		status = "okay";
 		compatible = "midi1_serial";
@@ -73,4 +91,4 @@
         };
 };
 
-/* EOF */
+

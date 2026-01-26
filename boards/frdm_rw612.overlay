@@ -1,0 +1,65 @@
+/** 
+ * DTS overlay for FRDM_RW612 
+ * by Jan-Willem Smaal <usenet@gispen.org 
+ * 20251203
+ */
+
+&flexcomm2 {
+    status = "okay";
+
+	/* On board temp sensor */ 
+    tmp102@48 {
+        compatible = "ti,tmp102";
+        reg = <0x48>;
+        label = "TMP102";
+        status = "okay";
+    };
+	/* MIKROE Air quality 11 click board */
+    ens160@52 {
+        compatible = "sciosense,ens160";
+        reg = <0x52>;          /* ENS161 typically strapped to 0x52 on MikroE */
+        label = "ENS161";
+        status = "okay";
+    };
+	/* SHT40 temp and humidity sensor  */
+	sht4x@44 {
+        compatible = "sensirion,sht4x";
+		reg = <0x44>;
+		label = "SHT4X";
+		status = "okay"; 
+		repeatability = <2>;
+	};
+	/* AUX display using LV to HV level convertor */ 
+    aux_display_gpio: pcf8574@27 {
+        compatible = "nxp,pcf857x";
+        reg = <0x27>;
+        gpio-controller;
+        ngpios = <8>;
+        #gpio-cells = <2>;
+    };
+};
+
+
+/ {
+	auxdisplay_0: hd44780 {
+		compatible = "hit,hd44780";
+		status = "okay";
+		columns = <42>;
+		rows = <2>;
+		mode = <4>;
+		boot-delay-ms = <1000>;   /* Let's try this for the unkown LCD */
+		/* boot-delay-ms = <15>; */  /* Works for the 32x2 LCD */
+		/* enable-line-rise-delay-us = <1000>;
+		enable-line-fall-delay-us = <1000>;
+		*/
+		register-select-gpios = <&aux_display_gpio 0 (GPIO_ACTIVE_HIGH)>;
+		/* read-write-gpios    = <&aux_display_gpio 1 (GPIO_ACTIVE_HIGH)>; */
+		enable-gpios        = <&aux_display_gpio 2 (GPIO_ACTIVE_HIGH)>;
+		backlight-gpios     = <&aux_display_gpio 3 (GPIO_ACTIVE_HIGH)>;
+		data-bus-gpios      = <0>, <0>, <0>, <0>,
+				<&aux_display_gpio 4 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 5 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 6 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 7 (GPIO_ACTIVE_HIGH)>;
+	};
+};
