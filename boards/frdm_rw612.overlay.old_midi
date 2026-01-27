@@ -1,0 +1,112 @@
+/*
+ * Device tree overlay created for the FRDM_RW612 development kit 
+ * adjusted  so that we can use it for MIDI out.  
+ * by Jan-Willem Smaal <usenet@gispen.org>
+ * on 20241223 
+ */
+
+/* 
+ * This is the USART connected on the MIKRObus socket board  
+ * tested for e.g. console output at 115200 baud. 
+ */
+&flexcomm0 {
+	compatible = "nxp,lpc-usart";
+	status = "disabled";
+};
+
+/* 
+ * Configured with the MIDI BAUD rate of 31250 
+ * This is the USART on the MIDI arduino shield. 
+ * GPIO 8 and 9. 
+ */
+&flexcomm1 {
+	compatible = "nxp,lpc-usart";
+	status = "okay";
+	current-speed = <31250>;
+	pinctrl-0 = <&pinmux_flexcomm1_usart>;
+	pinctrl-names = "default";
+};
+
+/* 
+ * This is the one connected to the I2C display via the MIKRO bus 
+ * GPIO 16 and 17 are used for I2C.  
+ * The I2C target is a PCF8574 connected on address 0x27.
+ */
+&flexcomm2 {
+	aux_display_gpio: pcf8574@27 {
+		compatible = "nxp,pcf857x";
+		reg = <0x27>;
+		gpio-controller;
+		ngpios = <8>;
+		#gpio-cells = <2>;
+	};
+	lis3mdl: lis3mdl@1e {
+		compatible = "st,lis3mdl-magn";
+		reg = <0x1e>;
+	};
+};
+
+/* This is the one connected to the USB serial port  */
+&flexcomm3 {
+	compatible = "nxp,lpc-usart";
+	status = "okay";
+};
+
+/* 
+ * We want to set flexcomm1 to USART instead of the default. 
+ * this is why we need to set the pinmux here. 
+ */
+&pinctrl {
+	pinmux_flexcomm1_usart: pinmux_flexcomm1_usart {
+		group0 {
+			pinmux = <IO_MUX_FC1_USART_DATA>;
+			slew-rate = "normal";
+		};
+	};
+};
+
+/ {
+	aliases {
+		magnetometer = &lis3mdl;
+		i2c0 = &flexcomm2;
+		led0 = &green_led;
+		midi = &flexcomm1;
+		ledblue = &blue_led;
+		ledred = &red_led;
+		ledgreen = &green_led;
+	};
+	leds {
+		compatible = "gpio-leds";
+		blue_led: blue_led {
+			gpios = <&hsgpio0 0 0>;
+		};
+		red_led: red_led {
+			gpios = <&hsgpio0 1 0>;
+		};
+		/* 
+		green_led: green_led {
+			gpios = <&hsgpio0 12 0>;
+		};  
+		*/
+	};
+	auxdisplay_0: hd44780 {
+		compatible = "hit,hd44780";
+		columns = <32>;
+		rows = <2>;
+		mode = <4>;
+		/* boot-delay-ms = <1000>; */  /* Let's try this for the unkown LCD */
+		boot-delay-ms = <15>;  /* Works for the 32x2 LCD */
+		/* enable-line-rise-delay-us = <1000>;
+		enable-line-fall-delay-us = <500>;
+		*/
+		register-select-gpios = <&aux_display_gpio 0 (GPIO_ACTIVE_HIGH)>;
+		read-write-gpios    = <&aux_display_gpio 1 (GPIO_ACTIVE_HIGH)>;
+		enable-gpios        = <&aux_display_gpio 2 (GPIO_ACTIVE_HIGH)>;
+		backlight-gpios     = <&aux_display_gpio 3 (GPIO_ACTIVE_HIGH)>;
+		data-bus-gpios      = <0>, <0>, <0>, <0>,
+				<&aux_display_gpio 4 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 5 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 6 (GPIO_ACTIVE_HIGH)>,
+				<&aux_display_gpio 7 (GPIO_ACTIVE_HIGH)>;
+	};
+};

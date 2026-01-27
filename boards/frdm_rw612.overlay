@@ -1,65 +1,42 @@
-/** 
- * DTS overlay for FRDM_RW612 
- * by Jan-Willem Smaal <usenet@gispen.org 
- * 20251203
+/*
+ * Device tree overlay created for the FRDM_RW612 development kit 
+ * adjusted  so that we can use it for MIDI out.  
+ * by Jan-Willem Smaal <usenet@gispen.org>
+ * on 20241223 
  */
 
-&flexcomm2 {
-    status = "okay";
-
-	/* On board temp sensor */ 
-    tmp102@48 {
-        compatible = "ti,tmp102";
-        reg = <0x48>;
-        label = "TMP102";
-        status = "okay";
-    };
-	/* MIKROE Air quality 11 click board */
-    ens160@52 {
-        compatible = "sciosense,ens160";
-        reg = <0x52>;          /* ENS161 typically strapped to 0x52 on MikroE */
-        label = "ENS161";
-        status = "okay";
-    };
-	/* SHT40 temp and humidity sensor  */
-	sht4x@44 {
-        compatible = "sensirion,sht4x";
-		reg = <0x44>;
-		label = "SHT4X";
-		status = "okay"; 
-		repeatability = <2>;
-	};
-	/* AUX display using LV to HV level convertor */ 
-    aux_display_gpio: pcf8574@27 {
-        compatible = "nxp,pcf857x";
-        reg = <0x27>;
-        gpio-controller;
-        ngpios = <8>;
-        #gpio-cells = <2>;
-    };
+/* 
+ * Configured with the MIDI BAUD rate of 31250 
+ * This is the USART on the MIDI arduino shield. 
+ * GPIO 8 and 9. 
+ */
+&flexcomm1 {
+	compatible = "nxp,lpc-usart";
+	status = "okay";
+	current-speed = <31250>;
+	pinctrl-0 = <&pinmux_flexcomm1_usart>;
+	pinctrl-names = "default";
 };
 
+/* 
+ * We want to set flexcomm1 to USART instead of the default. 
+ * this is why we need to set the pinmux here. 
+ */
+&pinctrl {
+	pinmux_flexcomm1_usart: pinmux_flexcomm1_usart {
+		group0 {
+			pinmux = <IO_MUX_FC1_USART_DATA>;
+			slew-rate = "normal";
+		};
+	};
+};
 
 / {
-	auxdisplay_0: hd44780 {
-		compatible = "hit,hd44780";
+	midi0: midi0 {
 		status = "okay";
-		columns = <42>;
-		rows = <2>;
-		mode = <4>;
-		boot-delay-ms = <1000>;   /* Let's try this for the unkown LCD */
-		/* boot-delay-ms = <15>; */  /* Works for the 32x2 LCD */
-		/* enable-line-rise-delay-us = <1000>;
-		enable-line-fall-delay-us = <1000>;
-		*/
-		register-select-gpios = <&aux_display_gpio 0 (GPIO_ACTIVE_HIGH)>;
-		/* read-write-gpios    = <&aux_display_gpio 1 (GPIO_ACTIVE_HIGH)>; */
-		enable-gpios        = <&aux_display_gpio 2 (GPIO_ACTIVE_HIGH)>;
-		backlight-gpios     = <&aux_display_gpio 3 (GPIO_ACTIVE_HIGH)>;
-		data-bus-gpios      = <0>, <0>, <0>, <0>,
-				<&aux_display_gpio 4 (GPIO_ACTIVE_HIGH)>,
-				<&aux_display_gpio 5 (GPIO_ACTIVE_HIGH)>,
-				<&aux_display_gpio 6 (GPIO_ACTIVE_HIGH)>,
-				<&aux_display_gpio 7 (GPIO_ACTIVE_HIGH)>;
+		compatible = "midi1_serial";
+		uart = <&flexcomm1>;
 	};
 };
+
+/* EOF */

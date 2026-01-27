@@ -15,6 +15,11 @@
 #include <zephyr/drivers/display.h>
 #include <zephyr/display/cfb.h>
 
+#include <lvgl.h>
+#include <string.h>
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(midi1_serial_monitor, CONFIG_LOG_DEFAULT_LEVEL);
+
 /* Moved to ../drivers */
 #include "midi1_serial.h"
 
@@ -120,54 +125,95 @@ void midi1_serial_receive_thread(void)
 	}
 }
 
-K_THREAD_DEFINE(midi1_serial_receive_tid, 512,
+K_THREAD_DEFINE(midi1_serial_receive_tid, 4096,
                 midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
 
 
-const struct device *display = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-const struct device *cfb = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+/*
+ * LVGL stuff
+ */
 
-int main_display_init(void)
+static lv_obj_t *line1;
+static lv_obj_t *line2;
+static lv_obj_t *line3;
+
+static lv_obj_t *line1;
+static lv_obj_t *line2;
+static lv_obj_t *line3;
+
+static void initialize_gui(void)
 {
-	if (!device_is_ready(display)) {
-		printk("Display not ready\n");
-		return -1;
-	}
+	/* Set screen background to black */
+	lv_obj_set_style_bg_color(lv_screen_active(),
+				  lv_color_black(),
+				  LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(lv_screen_active(),
+				LV_OPA_COVER,
+				LV_PART_MAIN);
 	
-	if (!device_is_ready(cfb)) {
-		printk("CFB not ready\n");
-		return -1;
-	}
+	/* Set default text color + font for the whole screen */
+	lv_obj_set_style_text_color(lv_screen_active(),
+				    lv_color_hex(0x00ff00),
+				    LV_PART_MAIN);
+	lv_obj_set_style_text_font(lv_screen_active(),
+				   &lv_font_montserrat_24,
+				   LV_PART_MAIN);
 	
-	/* Turn on the panel */
-	display_blanking_off(display);
+	/* Padding from edges */
+	const int margin = 6;
 	
-	/* Initialize the character framebuffer */
-	if (cfb_framebuffer_init(cfb)) {
-		printk("CFB init failed\n");
-		return -1;
-	}
+	/* Line 1 */
+	line1 = lv_label_create(lv_screen_active());
+	lv_label_set_text(line1, "MIDI Monitor v0.1 by Jan-Willem Smaal");
+	lv_obj_align(line1, LV_ALIGN_TOP_LEFT, margin, margin);
 	
-	/* Clear the framebuffer */
-	cfb_framebuffer_clear(cfb, true);
+	/* Line 2 */
+	line2 = lv_label_create(lv_screen_active());
+	lv_label_set_text(line2, "-");
+	lv_obj_align(line2, LV_ALIGN_TOP_LEFT, margin, margin + 26);
 	
-	/* Select font index 0 (usually 8x8) */
-	cfb_framebuffer_set_font(cfb, 0);
-	
-	/* Print default text */
-	cfb_print(cfb, "MIDIsync JWS", 0, 0);
-	cfb_print(cfb, "xxx.xx BPM  ", 0, 16);
-	cfb_print(cfb, "xxx.xx PLL  ", 0, 32);
-	cfb_print(cfb, "            ", 0, 48);
-	
-	/* Push framebuffer to display */
-	cfb_framebuffer_invert(cfb);
-	cfb_framebuffer_finalize(cfb);
-	
-	k_msleep(100);
-	
-	return 0;
+	/* Line 3 */
+	line3 = lv_label_create(lv_screen_active());
+	lv_label_set_text(line3, "Waiting...");
+	lv_obj_align(line3, LV_ALIGN_TOP_LEFT, margin, margin + 52);
 }
+
+
+void lvgl_thread(void)
+{
+	const struct device *display_dev;
+	int ret;
+	
+	display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+	if (!device_is_ready(display_dev)) {
+		LOG_ERR("Device not ready, aborting test");
+		return;
+	}
+	
+	initialize_gui();
+	
+	lv_timer_handler();
+	ret = display_blanking_off(display_dev);
+	if (ret < 0 && ret != -ENOSYS) {
+		LOG_ERR("Failed to turn blanking off (error %d)", ret);
+		return;
+	}
+	
+	while (1) {
+		//lv_label_set_text(line2, "Control Change 001 = 112");
+		//lv_label_set_text(line3, "Channel 13");
+		
+		uint32_t sleep_ms = lv_timer_handler();
+		
+		k_msleep(MIN(sleep_ms, INT32_MAX));
+	}
+	
+	return;
+}
+
+K_THREAD_DEFINE(lvgl_thread_tid, 4096,
+		lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
+
 
 
 /**
@@ -184,12 +230,11 @@ int main(void)
 	/* You can either use the pointer to the API or the public interface */
 	const struct midi1_serial_api *mid = midi->api;
 
-	
 	/*
 	 * Don't start the display straight after powerup (needs some time
 	 * to settle
 	 */
-	main_display_init();
+	k_sleep(K_MSEC(1000));
 	
 	/* Using the API pointer */
 	mid->note_on(midi, CH4, 1, 60);
@@ -236,5 +281,7 @@ int main(void)
 	}
 	return 0;
 }
+
+
 
 /* EOF */
