@@ -133,15 +133,22 @@ K_THREAD_DEFINE(midi1_serial_receive_tid, 4096,
  * LVGL stuff
  */
 
-static lv_obj_t *line1;
-static lv_obj_t *line2;
-static lv_obj_t *line3;
+/* ============================================================
+ *  GLOBALS
+ * ============================================================ */
 
-static lv_obj_t *cursor;
+static lv_obj_t *label_title;
+static lv_obj_t *label_bpm;
+static lv_obj_t *ta_midi;
+
+
+/* ============================================================
+ *  GUI INITIALIZATION (480×320 landscape)
+ * ============================================================ */
 
 static void initialize_gui(void)
 {
-	/* Set screen background to black */
+	/* Screen background (solid black, no transparency) */
 	lv_obj_set_style_bg_color(lv_screen_active(),
 				  lv_color_black(),
 				  LV_PART_MAIN);
@@ -149,97 +156,78 @@ static void initialize_gui(void)
 				LV_OPA_COVER,
 				LV_PART_MAIN);
 	
-	/* Set default text color + font for the whole screen */
+	/* Default text: white, size 14 */
 	lv_obj_set_style_text_color(lv_screen_active(),
-				    lv_color_hex(0x00ff00),
+				    lv_color_white(),
 				    LV_PART_MAIN);
 	lv_obj_set_style_text_font(lv_screen_active(),
-				   &lv_font_montserrat_24,
+				   &lv_font_montserrat_14,
 				   LV_PART_MAIN);
 	
-	/* Draw retro terminal frame */
-	lv_obj_t *frame = lv_obj_create(lv_screen_active());
-	lv_obj_set_size(frame, 340, 280);  /* Adjust to your display */
-	lv_obj_align(frame, LV_ALIGN_CENTER, 0, 0);
-	lv_obj_set_style_border_color(frame, lv_color_hex(0x00aa00), LV_PART_MAIN);
-	lv_obj_set_style_border_width(frame, 5, LV_PART_MAIN);
-	lv_obj_set_style_bg_opa(frame, LV_OPA_TRANSP, LV_PART_MAIN);
+	/* =====================================================
+	 *  TOP BAR
+	 * ===================================================== */
 	
-	const int margin = 8;
+	/* Left: static title */
+	label_title = lv_label_create(lv_screen_active());
+	lv_label_set_text(label_title, "MIDI Monitor by J-W Smaal v0.1");
+	lv_obj_align(label_title, LV_ALIGN_TOP_LEFT, 6, 4);
 	
-	/* Line 1 */
-	line1 = lv_label_create(frame);
-	lv_obj_set_style_text_color(line1,
-				    lv_color_hex(0x00ff00),
+	/* Right: BPM in larger font */
+	label_bpm = lv_label_create(lv_screen_active());
+	lv_obj_set_style_text_font(label_bpm,
+				   &lv_font_montserrat_18,
+				   LV_PART_MAIN);
+	lv_label_set_text(label_bpm, "123.89 BPM");
+	lv_obj_align(label_bpm, LV_ALIGN_TOP_RIGHT, -6, 4);
+	
+	
+	/* =====================================================
+	 *  CENTER: LARGE SCROLLABLE TEXT WINDOW
+	 * ===================================================== */
+	
+	ta_midi = lv_textarea_create(lv_screen_active());
+	lv_label_set_recolor(ta_midi, true);
+
+	
+	/* Size: nearly full screen minus top bar */
+	lv_obj_set_size(ta_midi, 468, 260);
+	lv_obj_align(ta_midi, LV_ALIGN_TOP_LEFT, 6, 40);
+	
+	/* No transparency */
+	lv_obj_set_style_bg_color(ta_midi,
+				  lv_color_black(),
+				  LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(ta_midi,
+				LV_OPA_COVER,
+				LV_PART_MAIN);
+	
+	/* Whitetext by default */
+	lv_obj_set_style_text_color(ta_midi,
+				    lv_color_white(),
 				    LV_PART_MAIN);
-	lv_label_set_text(line1, "MIDI Monitor v0.1 by Jan-Willem Smaal");
-	lv_obj_align(line1, LV_ALIGN_TOP_LEFT, margin, margin);
 	
-	/* Line 2 */
-	line2 = lv_label_create(frame);
-	lv_obj_set_style_text_color(line2,
-				    lv_color_hex(0x0000ff),
-				    LV_PART_MAIN);
-	lv_label_set_text(line2, "-");
-	lv_obj_align(line2, LV_ALIGN_TOP_LEFT, margin, margin + 26);
+	lv_textarea_set_text(ta_midi, "");
+	lv_textarea_set_max_length(ta_midi, 4096);
+	lv_textarea_set_cursor_click_pos(ta_midi, false);
 	
-	/* Line 3 */
-	line3 = lv_label_create(frame);
-	lv_label_set_text(line3, "Waiting...");
-	lv_obj_align(line3, LV_ALIGN_TOP_LEFT, margin, margin + 52);
-	
-	/* Blinking cursor */
-	cursor = lv_label_create(frame);
-	lv_label_set_text(cursor, "_");
-	lv_obj_align(cursor, LV_ALIGN_TOP_LEFT, margin + 160, margin + 52);
-	
-	lv_anim_t a;
-	lv_anim_init(&a);
-	lv_anim_set_var(&a, cursor);
-	lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
-	lv_anim_set_time(&a, 500);
-	lv_anim_set_playback_time(&a, 500);
-	lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
-	lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_style_opa);
-	lv_anim_start(&a);
+	/* Scrollbars: LVGL default behavior (Zephyr‑safe) */
 }
 
-
-static void initialize_gui2(void)
+static void ui_add_green(const char *msg)
 {
-	/* Set screen background to black */
-	lv_obj_set_style_bg_color(lv_screen_active(),
-				  lv_color_black(),
-				  LV_PART_MAIN);
-	lv_obj_set_style_bg_opa(lv_screen_active(),
-				LV_OPA_COVER,
-				LV_PART_MAIN);
+	if (!ta_midi) {
+		return;
+	}
 	
-	/* Set default text color + font for the whole screen */
-	lv_obj_set_style_text_color(lv_screen_active(),
-				    lv_color_hex(0x00ff00),
-				    LV_PART_MAIN);
-	lv_obj_set_style_text_font(lv_screen_active(),
-				   &lv_font_montserrat_24,
-				   LV_PART_MAIN);
+	char line[256];
+	//snprintf(line, sizeof(line), "#00ff00 %s#\n", msg);
+	snprintf(line, sizeof(line), "%s\n", msg);
 	
-	/* Padding from edges */
-	const int margin = 6;
+	lv_textarea_add_text(ta_midi, line);
 	
-	/* Line 1 */
-	line1 = lv_label_create(lv_screen_active());
-	lv_label_set_text(line1, "MIDI Monitor v0.1 by Jan-Willem Smaal");
-	lv_obj_align(line1, LV_ALIGN_TOP_LEFT, margin, margin);
-	
-	/* Line 2 */
-	line2 = lv_label_create(lv_screen_active());
-	lv_label_set_text(line2, "-");
-	lv_obj_align(line2, LV_ALIGN_TOP_LEFT, margin, margin + 26);
-	
-	/* Line 3 */
-	line3 = lv_label_create(lv_screen_active());
-	lv_label_set_text(line3, "Waiting...");
-	lv_obj_align(line3, LV_ALIGN_TOP_LEFT, margin, margin + 52);
+	/* Auto-scroll to bottom */
+	lv_textarea_set_cursor_pos(ta_midi, LV_TEXTAREA_CURSOR_LAST);
 }
 
 
@@ -263,9 +251,34 @@ void lvgl_thread(void)
 		return;
 	}
 	
+	ui_add_green("Note On  CH1  G#3  vel=127");
+	ui_add_green("Note Off CH1  G#3  vel=64");
+	ui_add_green("Control Change CH6  CC1  value=99");
+	ui_add_green("Pitch Bend CH1  +2048");
+	ui_add_green("RT Clock");
+	ui_add_green("Note On  CH1  G#3  vel=127");
+	ui_add_green("Note Off CH1  G#3  vel=64");
+	ui_add_green("Control Change CH6  CC1  value=99");
+	ui_add_green("Pitch Bend CH1  +2048");
+	ui_add_green("RT Clock");
+	ui_add_green("Note On  CH1  G#3  vel=127");
+	ui_add_green("Note Off CH1  G#3  vel=64");
+	ui_add_green("Control Change CH6  CC1  value=99");
+	ui_add_green("Pitch Bend CH1  +2048");
+	ui_add_green("RT Clock");
+	ui_add_green("Control Change CH6  CC1  value=99");
+	ui_add_green("Pitch Bend CH1  +2048");
+	ui_add_green("RT Clock");
+	ui_add_green("Note On  CH1  G#3  vel=127");
+	ui_add_green("Note Off CH1  G#3  vel=64");
+	ui_add_green("Control Change CH6  CC1  value=99");
+	ui_add_green("Pitch Bend CH1  +2048");
+	ui_add_green("RT Clock");
+	
+	
 	while (1) {
-		//lv_label_set_text(line2, "Control Change 001 = 112");
-		//lv_label_set_text(line3, "Channel 13");
+		
+
 		
 		uint32_t sleep_ms = lv_timer_handler();
 		
@@ -275,9 +288,9 @@ void lvgl_thread(void)
 	return;
 }
 
+/* For LVGL had to increase the stack size */
 K_THREAD_DEFINE(lvgl_thread_tid, 4096,
 		lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
-
 
 
 /**
