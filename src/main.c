@@ -137,11 +137,75 @@ static lv_obj_t *line1;
 static lv_obj_t *line2;
 static lv_obj_t *line3;
 
-static lv_obj_t *line1;
-static lv_obj_t *line2;
-static lv_obj_t *line3;
+static lv_obj_t *cursor;
 
 static void initialize_gui(void)
+{
+	/* Set screen background to black */
+	lv_obj_set_style_bg_color(lv_screen_active(),
+				  lv_color_black(),
+				  LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(lv_screen_active(),
+				LV_OPA_COVER,
+				LV_PART_MAIN);
+	
+	/* Set default text color + font for the whole screen */
+	lv_obj_set_style_text_color(lv_screen_active(),
+				    lv_color_hex(0x00ff00),
+				    LV_PART_MAIN);
+	lv_obj_set_style_text_font(lv_screen_active(),
+				   &lv_font_montserrat_24,
+				   LV_PART_MAIN);
+	
+	/* Draw retro terminal frame */
+	lv_obj_t *frame = lv_obj_create(lv_screen_active());
+	lv_obj_set_size(frame, 340, 280);  /* Adjust to your display */
+	lv_obj_align(frame, LV_ALIGN_CENTER, 0, 0);
+	lv_obj_set_style_border_color(frame, lv_color_hex(0x00aa00), LV_PART_MAIN);
+	lv_obj_set_style_border_width(frame, 5, LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(frame, LV_OPA_TRANSP, LV_PART_MAIN);
+	
+	const int margin = 8;
+	
+	/* Line 1 */
+	line1 = lv_label_create(frame);
+	lv_obj_set_style_text_color(line1,
+				    lv_color_hex(0x00ff00),
+				    LV_PART_MAIN);
+	lv_label_set_text(line1, "MIDI Monitor v0.1 by Jan-Willem Smaal");
+	lv_obj_align(line1, LV_ALIGN_TOP_LEFT, margin, margin);
+	
+	/* Line 2 */
+	line2 = lv_label_create(frame);
+	lv_obj_set_style_text_color(line2,
+				    lv_color_hex(0x0000ff),
+				    LV_PART_MAIN);
+	lv_label_set_text(line2, "-");
+	lv_obj_align(line2, LV_ALIGN_TOP_LEFT, margin, margin + 26);
+	
+	/* Line 3 */
+	line3 = lv_label_create(frame);
+	lv_label_set_text(line3, "Waiting...");
+	lv_obj_align(line3, LV_ALIGN_TOP_LEFT, margin, margin + 52);
+	
+	/* Blinking cursor */
+	cursor = lv_label_create(frame);
+	lv_label_set_text(cursor, "_");
+	lv_obj_align(cursor, LV_ALIGN_TOP_LEFT, margin + 160, margin + 52);
+	
+	lv_anim_t a;
+	lv_anim_init(&a);
+	lv_anim_set_var(&a, cursor);
+	lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+	lv_anim_set_time(&a, 500);
+	lv_anim_set_playback_time(&a, 500);
+	lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+	lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_style_opa);
+	lv_anim_start(&a);
+}
+
+
+static void initialize_gui2(void)
 {
 	/* Set screen background to black */
 	lv_obj_set_style_bg_color(lv_screen_active(),
