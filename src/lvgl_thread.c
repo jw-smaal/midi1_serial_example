@@ -1,0 +1,205 @@
+/**
+ * LVGL stuff
+ *
+ * @author Jan-Willem Smaal <usenet@gispen.org>
+ * @date 20260107
+ *
+ * license SPDX-License-Identifier: Apache-2.0
+ */
+#include <stdio.h>
+#include <zephyr/device.h>
+#include <zephyr/kernel.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/devicetree.h>
+#include <zephyr/drivers/display.h>
+#include <zephyr/display/cfb.h>
+
+#include <lvgl.h>
+#include <string.h>
+#include <zephyr/logging/log.h>
+
+
+#include "common.h"
+
+LOG_MODULE_REGISTER(lvgl_screen1, CONFIG_LOG_DEFAULT_LEVEL);
+/*
+ *  GLOBALS
+ */
+static lv_obj_t *label_title;
+static lv_obj_t *label_bpm;
+static lv_obj_t *ta_midi;
+
+
+/*
+ *  GUI INITIALIZATION (480×320 landscape)
+ */
+static void initialize_gui(void)
+{
+	/* Screen background (solid black, no transparency) */
+	lv_obj_set_style_bg_color(lv_screen_active(),
+				  lv_color_black(),
+				  LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(lv_screen_active(),
+				LV_OPA_COVER,
+				LV_PART_MAIN);
+	
+	/* Default text: white, size 14 */
+	lv_obj_set_style_text_color(lv_screen_active(),
+				    lv_color_white(),
+				    LV_PART_MAIN);
+	lv_obj_set_style_text_font(lv_screen_active(),
+				   &lv_font_montserrat_14,
+				   LV_PART_MAIN);
+	
+	/* =====================================================
+	 *  TOP BAR
+	 * ===================================================== */
+	/* Left: static title */
+	label_title = lv_label_create(lv_screen_active());
+	lv_label_set_text(label_title, "MIDI Monitor by J-W Smaal v0.1");
+	lv_obj_align(label_title, LV_ALIGN_TOP_LEFT, 6, 4);
+	
+	/* Right: BPM in larger font */
+	label_bpm = lv_label_create(lv_screen_active());
+	lv_obj_set_style_text_font(label_bpm,
+				   &lv_font_montserrat_18,
+				   LV_PART_MAIN);
+	lv_label_set_text(label_bpm, "123.89 BPM");
+	lv_obj_align(label_bpm, LV_ALIGN_TOP_RIGHT, -6, 4);
+	
+	
+	/* =====================================================
+	 *  CENTER: LARGE SCROLLABLE TEXT WINDOW
+	 * ===================================================== */
+	ta_midi = lv_textarea_create(lv_screen_active());
+	lv_label_set_recolor(ta_midi, true);
+	
+	
+	/* Size: nearly full screen minus top bar */
+	lv_obj_set_size(ta_midi, 468, 260);
+	lv_obj_align(ta_midi, LV_ALIGN_TOP_LEFT, 6, 40);
+	
+	/* No transparency */
+	lv_obj_set_style_bg_color(ta_midi,
+				  lv_color_black(),
+				  LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(ta_midi,
+				LV_OPA_COVER,
+				LV_PART_MAIN);
+	
+	/* Whitetext by default */
+	lv_obj_set_style_text_color(ta_midi,
+				    lv_color_white(),
+				    LV_PART_MAIN);
+	
+	lv_textarea_set_text(ta_midi, "");
+	lv_textarea_set_max_length(ta_midi, 4096);
+	lv_textarea_set_cursor_click_pos(ta_midi, false);
+}
+
+
+#define MAX_MIDI_LINES 18
+static int midi_line_count = 0;
+
+static void ui_add_line(const char *msg)
+{
+	if (!ta_midi) {
+		return;
+	}
+	
+	/* Trim oldest line if needed */
+	if (midi_line_count >= MAX_MIDI_LINES) {
+		const char *txt = lv_textarea_get_text(ta_midi);
+		const char *newline = strchr(txt, '\n');
+		
+		if (newline) {
+			/* Skip past the newline */
+			const char *rest = newline + 1;
+			
+			/* Replace textarea content with trimmed text */
+			lv_textarea_set_text(ta_midi, rest);
+			
+			midi_line_count--;
+		}
+	}
+	
+	/* Format new line */
+	char buf[256];
+	snprintf(buf, sizeof(buf), "%s\n", msg);
+	
+	/* Append */
+	lv_textarea_add_text(ta_midi, buf);
+	midi_line_count++;
+}
+
+
+
+static void ui_add_line2(const char *msg)
+{
+	if (!ta_midi) {
+		return;
+	}
+	
+	char line[256];
+	snprintf(line, sizeof(line), "%s\n", msg);
+	
+	lv_textarea_add_text(ta_midi, line);
+	
+	
+}
+
+
+
+
+
+void lvgl_thread(void)
+{
+	const struct device *display_dev;
+	int ret;
+	
+	display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
+	if (!device_is_ready(display_dev)) {
+		LOG_ERR("Device not ready, aborting test");
+		return;
+	}
+	
+	initialize_gui();
+	
+	lv_timer_handler();
+	ret = display_blanking_off(display_dev);
+	if (ret < 0 && ret != -ENOSYS) {
+		LOG_ERR("Failed to turn blanking off (error %d)", ret);
+		return;
+	}
+	ui_add_line("...");
+	
+	char line[MIDI_LINE_MAX];
+	while (1) {
+		bool updated = false;
+		/* Drain all pending messages without blocking */
+		while (k_msgq_get(&midi_msgq, line, K_NO_WAIT) == 0) {
+			ui_add_line(line);   /* only this thread touches LVGL */
+			updated = true;
+		}
+		if (updated) {
+			lv_textarea_set_cursor_pos(ta_midi, LV_TEXTAREA_CURSOR_LAST);
+		}
+		
+		/* Let LVGL do its housekeeping */
+		uint32_t sleep_ms = lv_timer_handler();
+		if (sleep_ms < 5) {
+			sleep_ms = 5;
+		}
+		k_msleep(sleep_ms);
+	}
+	
+	return;
+}
+
+/* For LVGL had to increase the stack size */
+K_THREAD_DEFINE(lvgl_thread_tid, 4096,
+		lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
+
+
+/* EOF */
