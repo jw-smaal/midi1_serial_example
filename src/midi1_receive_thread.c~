@@ -44,12 +44,14 @@ K_MSGQ_DEFINE(midi_msgq, MIDI_LINE_MAX, MIDI_MSGQ_MAX, 4);
 void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
 	//LOG_INF("Note  on: %s %03d %03d", noteToTextWithOctave(note, false),
-	//     note, velocity);
-
+	  //     note, velocity);
+	
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> Note  on: %s %03d %03d",
-	         channel + 1,
-	         noteToTextWithOctave(note, false), note, velocity);
+		channel + 1,
+		noteToTextWithOctave(note, false),
+	        note,
+		velocity);
 	LOG_INF("%s", line);
 	k_msgq_put(&midi_msgq, line, K_NO_WAIT);
 }
@@ -57,12 +59,14 @@ void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 void note_off_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
 	//LOG_INF("Note off: %s %03d %03d", noteToTextWithOctave(note, false),
-	//      note, velocity);
-
+	 //      note, velocity);
+	
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> Note  off: %s %03d %03d",
-	         channel + 1,
-	         noteToTextWithOctave(note, false), note, velocity);
+		channel + 1,
+		noteToTextWithOctave(note, false),
+		note,
+		velocity);
 	LOG_INF("%s", line);
 	k_msgq_put(&midi_msgq, line, K_NO_WAIT);
 }
@@ -73,24 +77,27 @@ void pitchwheel_handler(uint8_t channel, uint8_t lsb, uint8_t msb)
 	int16_t pwheel = (int16_t) ((msb << 7) | lsb) - PITCHWHEEL_CENTER;
 	/* print on the serial out */
 	//LOG_INF("Pitchwheel: %d", pwheel);
-
+	
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> Pitchwheel: %d",
-	         channel + 1, pwheel);
+		channel + 1,
+		pwheel);
 	LOG_INF("%s", line);
 	k_msgq_put(&midi_msgq, line, K_NO_WAIT);
-
+	
 }
 
 #if 0
 void control_change_handler_model(uint8_t channel,
-                                  uint8_t controller, uint8_t value)
+				  uint8_t controller, uint8_t value)
 {
 	//LOG_INF("CC: %d %d", controller, value);
-
+	
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> CC: %d value: %d",
-	         channel + 1, controller, value);
+		channel + 1,
+		controller,
+		value);
 	LOG_INF("%s", line);
 	k_msgq_put(&midi_msgq, line, K_NO_WAIT);
 }
@@ -99,10 +106,12 @@ void control_change_handler_model(uint8_t channel,
 void control_change_handler(uint8_t channel, uint8_t controller, uint8_t value)
 {
 	//LOG_INF("CC: %d %d", controller, value);
-
+	
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> CC: %d value: %d",
-	         channel + 1, controller, value);
+		channel + 1,
+		controller,
+		value);
 	LOG_INF("%s", line);
 	k_msgq_put(&midi_msgq, line, K_NO_WAIT);
 }
@@ -136,13 +145,13 @@ void sysex_stop_handler(void)
 void midi1_serial_receive_thread(void)
 {
 	const struct device *midi = DEVICE_DT_GET(DT_NODELABEL(midi0));
-
+	
 	if (!device_is_ready(midi)) {
 		LOG_ERR("receive_thread Serial MIDI1 device not ready");
 		return;
 	}
 	const struct midi1_serial_api *mid = midi->api;
-
+	
 	/*
 	 * Set the callbacks in the driver to our own callbacks.  Pointers
 	 * left null are not used in the callbacks.
@@ -159,7 +168,7 @@ void midi1_serial_receive_thread(void)
 	};
 	/* midi1_serial_register_callbacks(midi, &my_cb); */
 	mid->register_callbacks(midi, &my_cb);
-
+	
 	while (1) {
 		/* As this call is blocking no need to sleep in between */
 		mid->receiveparser(midi);
@@ -167,6 +176,6 @@ void midi1_serial_receive_thread(void)
 }
 
 K_THREAD_DEFINE(midi1_serial_receive_tid, 4096,
-                midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
+		midi1_serial_receive_thread, NULL, NULL, NULL, 5, 0, 0);
 
 /* EOF */
