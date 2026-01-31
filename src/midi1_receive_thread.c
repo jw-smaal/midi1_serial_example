@@ -30,6 +30,7 @@ LOG_MODULE_REGISTER(midi1_receive_thread, CONFIG_LOG_DEFAULT_LEVEL);
 #include "common.h"
 
 K_MSGQ_DEFINE(midi_msgq, MIDI_LINE_MAX, MIDI_MSGQ_MAX, 4);
+K_MSGQ_DEFINE(midi_raw_msgq, MIDI_LINE_MAX, MIDI_MSGQ_MAX, 4);
 /**
  * @brief Callbacks/delegates for 'midi1_serial.c' after parsing MIDI1.0
  *
@@ -44,6 +45,12 @@ K_MSGQ_DEFINE(midi_msgq, MIDI_LINE_MAX, MIDI_MSGQ_MAX, 4);
 void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
 	char line[MIDI_LINE_MAX];
+	struct midi1_raw mid_raw = {
+		.channel = channel,
+		.p1 = note,
+		.p2 = velocity
+	};
+	k_msgq_put(&midi_raw_msgq, &mid_raw, K_NO_WAIT);
 	
 	snprintf(line, sizeof(line), "CH: %d -> Note  on: %s %03d %03d",
 	         channel + 1,
@@ -55,6 +62,12 @@ void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 void note_off_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
 	char line[MIDI_LINE_MAX];
+	struct midi1_raw mid_raw = {
+		.channel = channel,
+		.p1 = note,
+		.p2 = velocity
+	};
+	k_msgq_put(&midi_raw_msgq, &mid_raw, K_NO_WAIT);
 	
 	snprintf(line, sizeof(line), "CH: %d -> Note  off: %s %03d %03d",
 	         channel + 1,
@@ -92,6 +105,12 @@ void control_change_handler_model(uint8_t channel,
 void control_change_handler(uint8_t channel, uint8_t controller, uint8_t value)
 {
 	char line[MIDI_LINE_MAX];
+	struct midi1_raw mid_raw = {
+		.channel = channel,
+		.p1 = controller,
+		.p2 = value
+	};
+	k_msgq_put(&midi_raw_msgq, &mid_raw, K_NO_WAIT);
 	
 	snprintf(line, sizeof(line), "CH: %d -> CC: %d value: %d",
 	         channel + 1, controller, value);

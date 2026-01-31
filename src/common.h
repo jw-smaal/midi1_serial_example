@@ -21,10 +21,19 @@
 #include <string.h>
 #include <zephyr/logging/log.h>
 
-#define MIDI_LINE_MAX 64
+#define MIDI_LINE_MAX 128
 
-#define MIDI_MSGQ_MAX 16
+#define MIDI_MSGQ_MAX 3
 /* Defined in midi1_receive_thread */
 extern struct k_msgq midi_msgq;
+extern struct k_msgq midi_raw_msgq;
+
+/* just a struct we pass to be able to draw a bar */
+struct midi1_raw {
+	uint8_t channel;
+	uint8_t p1;
+	uint8_t p2;
+};
+
 
 #endif

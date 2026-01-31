@@ -29,10 +29,50 @@ static lv_obj_t *label_title;
 static lv_obj_t *label_bpm;
 static lv_obj_t *label_channel;
 static lv_obj_t *ta_midi;
+static lv_obj_t *level_bar;
+#define LED_COUNT 16
+static lv_obj_t *leds[LED_COUNT];
 
 /*
  *  GUI INITIALIZATION (480×320 landscape)
  */
+void ui_set_led_level(uint8_t value)
+{
+	int lit = (value * LED_COUNT) / 128;
+	
+	/* Should check if led != 0 */
+	for (int i = 0; i < LED_COUNT; i++) {
+		if (i < lit) {
+			lv_led_on(leds[LED_COUNT - 1 - i]);
+
+		} else {
+			lv_led_off(leds[LED_COUNT - 1 - i]);
+		}
+	}
+}
+
+
+static void initialize_gui2(void)
+{
+	/* Screen background (solid black, no transparency) */
+	lv_obj_set_style_bg_color(lv_screen_active(),
+				  lv_color_black(), LV_PART_MAIN);
+	lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
+	
+	/* Default text: white, size 14 */
+	lv_obj_set_style_text_color(lv_screen_active(),
+				    lv_color_white(), LV_PART_MAIN);
+	lv_obj_set_style_text_font(lv_screen_active(),
+				   &lv_font_montserrat_14, LV_PART_MAIN);
+	/* =====================================================
+	 *  TOP BAR
+	 * ===================================================== */
+	/* Left: static title */
+	label_title = lv_label_create(lv_screen_active());
+	lv_label_set_text(label_title, "MIDI Monitor ");
+	lv_obj_align(label_title, LV_ALIGN_TOP_LEFT, 6, 4);
+}
+
 static void initialize_gui(void)
 {
 	/* Screen background (solid black, no transparency) */
@@ -84,7 +124,7 @@ static void initialize_gui(void)
 				   &lv_font_montserrat_18, LV_PART_MAIN);
 
 	/* Size: nearly full screen minus top and bottom bar */
-	lv_obj_set_size(ta_midi, 420, 220);
+	lv_obj_set_size(ta_midi, 390, 220);
 	lv_obj_align(ta_midi, LV_ALIGN_TOP_LEFT, 6, 40);
 
 	/* No transparency */
@@ -97,21 +137,80 @@ static void initialize_gui(void)
 	lv_textarea_set_text(ta_midi, "");
 	lv_textarea_set_max_length(ta_midi, 4096);
 	lv_textarea_set_cursor_click_pos(ta_midi, false);
+	
+	
+	/*
+	 * Level bar
+	 */
+	level_bar = lv_bar_create(lv_screen_active());
+	
+	/* MIDI range: 0–127 */
+	lv_bar_set_range(level_bar, 0, 127);
+	
+	/* Size and position */
+	lv_obj_set_size(level_bar, 240, 20);   /* width, height */
+	lv_obj_align(level_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
+	
+#if 0
+	lv_obj_set_style_bg_color(level_bar,
+				  lv_color_hex(0x00A000),
+				  LV_PART_INDICATOR);
+#endif
+		
+#define LED_COUNT 16
+	for (int i = 0; i < LED_COUNT; i++) {
+		leds[i] = lv_led_create(lv_screen_active());
+		
+		/* LED size */
+		lv_obj_set_size(leds[i], 10, 10);
+		
+		/* Vertical placement: top LED at top, bottom LED at bottom */
+		lv_obj_align(leds[i],
+			     LV_ALIGN_RIGHT_MID,
+			     -4,     /* X offset from right edge */
+			     -((LED_COUNT - 1) * 12) / 2 + i * 12);
+		
+	}
+	
+	//ui_set_led_level(64);
 }
+
+
+static void ui_set_bar(const struct midi1_raw mid_raw)
+{
+	if (!level_bar) {
+		return;
+	}
+	uint8_t v = mid_raw.p2;
+	lv_bar_set_value(level_bar, v, LV_ANIM_OFF);
+}
+
+
+
+
 
 static void ui_set_line(const char *msg)
 {
-	if (!ta_midi) {
+	if (!label_title) {
 		return;
 	}
 
 	char buf[MIDI_LINE_MAX];
-	snprintf(buf, sizeof(buf), "%s\n", msg);
-	lv_textarea_set_text(ta_midi, buf);
+	snprintf(buf, sizeof(buf), "%s", msg);
+	lv_textarea_set_text(label_title, buf);
 }
+
 
 #define MAX_MIDI_LINES 9
 static int midi_line_count = 0;
+static void ui_add_line2(const char *msg) {
+	if (!ta_midi) {
+		return;
+	}
+
+	lv_textarea_set_text(ta_midi, "");
+}
+
 static void ui_add_line(const char *msg)
 {
 	if (!ta_midi) {
@@ -156,22 +255,28 @@ void lvgl_thread(void)
 	initialize_gui();
 	
 	char line[MIDI_LINE_MAX];
+	struct midi1_raw mid_raw;
 	while (1) {
 		int processed = 0;
 		
 		/* Process at most N messages per iteration */
 		while (processed < MAX_MESSAGES_PER_TICK &&
 		       k_msgq_get(&midi_msgq, line, K_NO_WAIT) == 0) {
-			
 			ui_add_line(line);
+			//ui_set_line(line);
 			processed++;
 		}
-		
-		/* Always give LVGL time to run */
 		uint32_t sleep_ms = lv_timer_handler();
-		if (sleep_ms < 5) {
-			sleep_ms = 5;
+		k_msleep(sleep_ms);
+		
+		/* The raw midi stuff  that updates the bar */
+		while (processed < MAX_MESSAGES_PER_TICK &&
+			k_msgq_get(&midi_raw_msgq, &mid_raw, K_NO_WAIT) == 0) {
+			ui_set_bar(mid_raw);
+			ui_set_led_level(mid_raw.p1);
+			processed++;
 		}
+		sleep_ms = lv_timer_handler();
 		k_msleep(sleep_ms);
 	}
 	return;
@@ -179,6 +284,6 @@ void lvgl_thread(void)
 
 
 /* For LVGL had to increase the stack size */
-K_THREAD_DEFINE(lvgl_thread_tid, 4096, lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
+K_THREAD_DEFINE(lvgl_thread_tid, 8192, lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
 
 /* EOF */
