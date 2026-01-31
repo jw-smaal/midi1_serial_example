@@ -21,9 +21,10 @@
 #include <string.h>
 #include <zephyr/logging/log.h>
 
-#define MIDI_LINE_MAX 32
-#define MIDI_MSGQ_MAX 16
+#define MIDI_LINE_MAX 64
 
+#define MIDI_MSGQ_MAX 16
+/* Defined in midi1_receive_thread */
 extern struct k_msgq midi_msgq;
 
 #endif

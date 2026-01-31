@@ -43,10 +43,8 @@ K_MSGQ_DEFINE(midi_msgq, MIDI_LINE_MAX, MIDI_MSGQ_MAX, 4);
  */
 void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
-	//LOG_INF("Note  on: %s %03d %03d", noteToTextWithOctave(note, false),
-	//     note, velocity);
-
 	char line[MIDI_LINE_MAX];
+	
 	snprintf(line, sizeof(line), "CH: %d -> Note  on: %s %03d %03d",
 	         channel + 1,
 	         noteToTextWithOctave(note, false), note, velocity);
@@ -56,10 +54,8 @@ void note_on_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 
 void note_off_handler(uint8_t channel, uint8_t note, uint8_t velocity)
 {
-	//LOG_INF("Note off: %s %03d %03d", noteToTextWithOctave(note, false),
-	//      note, velocity);
-
 	char line[MIDI_LINE_MAX];
+	
 	snprintf(line, sizeof(line), "CH: %d -> Note  off: %s %03d %03d",
 	         channel + 1,
 	         noteToTextWithOctave(note, false), note, velocity);
@@ -71,8 +67,6 @@ void pitchwheel_handler(uint8_t channel, uint8_t lsb, uint8_t msb)
 {
 	/* 14 bit value for the pitch wheel  */
 	int16_t pwheel = (int16_t) ((msb << 7) | lsb) - PITCHWHEEL_CENTER;
-	/* print on the serial out */
-	//LOG_INF("Pitchwheel: %d", pwheel);
 
 	char line[MIDI_LINE_MAX];
 	snprintf(line, sizeof(line), "CH: %d -> Pitchwheel: %d",
@@ -86,9 +80,8 @@ void pitchwheel_handler(uint8_t channel, uint8_t lsb, uint8_t msb)
 void control_change_handler_model(uint8_t channel,
                                   uint8_t controller, uint8_t value)
 {
-	//LOG_INF("CC: %d %d", controller, value);
-
 	char line[MIDI_LINE_MAX];
+	
 	snprintf(line, sizeof(line), "CH: %d -> CC: %d value: %d",
 	         channel + 1, controller, value);
 	LOG_INF("%s", line);
@@ -98,9 +91,8 @@ void control_change_handler_model(uint8_t channel,
 
 void control_change_handler(uint8_t channel, uint8_t controller, uint8_t value)
 {
-	//LOG_INF("CC: %d %d", controller, value);
-
 	char line[MIDI_LINE_MAX];
+	
 	snprintf(line, sizeof(line), "CH: %d -> CC: %d value: %d",
 	         channel + 1, controller, value);
 	LOG_INF("%s", line);

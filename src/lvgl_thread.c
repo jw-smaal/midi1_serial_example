@@ -27,6 +27,7 @@ LOG_MODULE_REGISTER(lvgl_screen1, CONFIG_LOG_DEFAULT_LEVEL);
  */
 static lv_obj_t *label_title;
 static lv_obj_t *label_bpm;
+static lv_obj_t *label_channel;
 static lv_obj_t *ta_midi;
 
 /*
@@ -57,17 +58,33 @@ static void initialize_gui(void)
 	label_bpm = lv_label_create(lv_screen_active());
 	lv_obj_set_style_text_font(label_bpm,
 	                           &lv_font_montserrat_18, LV_PART_MAIN);
-	lv_label_set_text(label_bpm, "123.89 BPM");
-	lv_obj_align(label_bpm, LV_ALIGN_TOP_RIGHT, -6, 4);
+	lv_obj_set_style_text_color(label_bpm,
+				    lv_color_hex(0xff0000),   /* Red */
+				    LV_PART_MAIN);
+	lv_label_set_text(label_bpm, " 123.89 BPM");
+	lv_obj_align(label_bpm, LV_ALIGN_TOP_RIGHT, 0, 0);
+	
+	
+	/* Left: Channel on the left */
+	label_channel = lv_label_create(lv_screen_active());
+	lv_obj_set_style_text_font(label_channel,
+				   &lv_font_montserrat_18, LV_PART_MAIN);
+	lv_obj_set_style_text_color(label_channel,
+				    lv_color_hex(0x006400),   /* dark green */
+				    LV_PART_MAIN);
+	lv_label_set_text(label_channel, "CHxx");
+	lv_obj_align(label_channel, LV_ALIGN_BOTTOM_LEFT, 0, 0);
 
 	/* =====================================================
 	 *  CENTER: LARGE SCROLLABLE TEXT WINDOW
 	 * ===================================================== */
 	ta_midi = lv_textarea_create(lv_screen_active());
-	lv_label_set_recolor(ta_midi, true);
+	//lv_label_set_recolor(ta_midi, true);
+	lv_obj_set_style_text_font(ta_midi,
+				   &lv_font_montserrat_18, LV_PART_MAIN);
 
-	/* Size: nearly full screen minus top bar */
-	lv_obj_set_size(ta_midi, 468, 260);
+	/* Size: nearly full screen minus top and bottom bar */
+	lv_obj_set_size(ta_midi, 420, 220);
 	lv_obj_align(ta_midi, LV_ALIGN_TOP_LEFT, 6, 40);
 
 	/* No transparency */
@@ -82,29 +99,41 @@ static void initialize_gui(void)
 	lv_textarea_set_cursor_click_pos(ta_midi, false);
 }
 
+static void ui_set_line(const char *msg)
+{
+	if (!ta_midi) {
+		return;
+	}
+
+	char buf[MIDI_LINE_MAX];
+	snprintf(buf, sizeof(buf), "%s\n", msg);
+	lv_textarea_set_text(ta_midi, buf);
+}
+
+#define MAX_MIDI_LINES 9
+static int midi_line_count = 0;
 static void ui_add_line(const char *msg)
 {
 	if (!ta_midi) {
 		return;
 	}
-
-	char buf[64];
-	snprintf(buf, sizeof(buf), "%s\n", msg);
-	lv_textarea_set_text(ta_midi, buf);
-}
-
-static void ui_add_line2(const char *msg)
-{
-	if (!ta_midi) {
-		return;
+	
+	/* If full, clear everything */
+	if (midi_line_count >= MAX_MIDI_LINES) {
+		lv_textarea_set_text(ta_midi, "");
+		midi_line_count = 0;
 	}
-
-	char line[256];
-	snprintf(line, sizeof(line), "%s\n", msg);
-
-	lv_textarea_add_text(ta_midi, line);
+	
+	/* Format new line */
+	char buf[MIDI_LINE_MAX];
+	snprintf(buf, sizeof(buf), "%s\n", msg);
+	
+	/* Append */
+	lv_textarea_add_text(ta_midi, buf);
+	midi_line_count++;
 }
 
+#define MAX_MESSAGES_PER_TICK 3
 void lvgl_thread(void)
 {
 	const struct device *display_dev;
@@ -117,7 +146,6 @@ void lvgl_thread(void)
 	}
 
 	initialize_gui();
-
 	lv_timer_handler();
 	ret = display_blanking_off(display_dev);
 	if (ret < 0 && ret != -ENOSYS) {
@@ -125,21 +153,21 @@ void lvgl_thread(void)
 		return;
 	}
 	ui_add_line("...");
-
+	initialize_gui();
+	
 	char line[MIDI_LINE_MAX];
 	while (1) {
-		bool updated = false;
-		/* Drain all pending messages without blocking */
-		while (k_msgq_get(&midi_msgq, line, K_NO_WAIT) == 0) {
-			ui_add_line(line);      /* only this thread touches LVGL */
-			updated = true;
+		int processed = 0;
+		
+		/* Process at most N messages per iteration */
+		while (processed < MAX_MESSAGES_PER_TICK &&
+		       k_msgq_get(&midi_msgq, line, K_NO_WAIT) == 0) {
+			
+			ui_add_line(line);
+			processed++;
 		}
-		if (updated) {
-			lv_textarea_set_cursor_pos(ta_midi,
-			                           LV_TEXTAREA_CURSOR_LAST);
-		}
-
-		/* Let LVGL do its housekeeping */
+		
+		/* Always give LVGL time to run */
 		uint32_t sleep_ms = lv_timer_handler();
 		if (sleep_ms < 5) {
 			sleep_ms = 5;
@@ -148,6 +176,7 @@ void lvgl_thread(void)
 	}
 	return;
 }
+
 
 /* For LVGL had to increase the stack size */
 K_THREAD_DEFINE(lvgl_thread_tid, 4096, lvgl_thread, NULL, NULL, NULL, 5, 0, 0);
