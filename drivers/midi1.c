@@ -242,18 +242,13 @@ uint16_t pqn24_to_sbpm(uint32_t pqn24)
 	return us_interval_to_sbpm(qn_interval_us);
 }
 
-const char *sbpm_to_str(uint16_t sbpm)
+int sbpm_to_str(uint16_t sbpm, char *buf, size_t len)
 {
-	/* Enough for "12345.67" + null */
-	static char buf[16];
-
 	uint32_t whole = sbpm / 100u;   /* integer BPM */
 	uint32_t frac = sbpm % 100u;    /* fractional part */
 
 	/* Format:  whole.frac  (e.g. 120.00) */
-	snprintf(buf, sizeof(buf), "%03u.%02u", whole, frac);
-
-	return buf;
+	return snprintf(buf, len, "%03u.%02u", whole, frac);
 }
 
 /* -------------------------------------------------------------------------- */

@@ -39,6 +39,9 @@
 /* System messages */
 enum midi_sysex {
 	SYSTEM_EXCLUSIVE_START = 0xF0,
+	SYSTEM_MTC_QUARTER_FRAME = 0xF1,
+	SYSTEM_SONG_POSITION = 0xF2,
+	SYSTEM_SONG_SELECT = 0xF3,
 	SYSTEM_TUNE_REQUEST = 0xF6,
 	SYSTEM_EXCLUSIVE_END = 0xF7
 };
@@ -356,12 +359,14 @@ uint32_t sbpm_to_24pqn(uint16_t sbpm);
 uint16_t pqn24_to_sbpm(uint32_t pqn24);
 
 /**
- * @brief  Returns static string with the BPM formattted like 123.45
+ * @brief  Returns formatted string with the BPM formattted like 123.45
  *
  * @param  sbpm   Scaled BPM value (e.g. 12000 for 120.00 BPM)
- * @return Pointer to a static buffer containing the formatted string "xxx.yy"
+ * @param  buf    Pointer to a buffer to hold the formatted string
+ * @param  len    Size of the provided buffer
+ * @return Number of characters written (as per snprintf)
  */
-const char *sbpm_to_str(uint16_t sbpm);
+int sbpm_to_str(uint16_t sbpm, char *buf, size_t len);
 
 /* -------------------------------------------------------------------------- */
 #endif

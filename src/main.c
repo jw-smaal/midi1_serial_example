@@ -170,7 +170,7 @@ int main(void)
 			for (uint8_t i = 0; i < 128; i++) {
 				// midi1_serial_timingclock(midi);
 				mid->timingclock(midi);
-				k_sleep(K_MSEC(1));
+				k_sleep(K_MSEC(20));
 			}
 			// midi1_serial_stop(midi);
 			mid->stop(midi);

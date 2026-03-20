@@ -67,9 +67,14 @@ struct midi1_serial_callbacks {
 	/* Callback for the realtime messages (clock, stop etc..) */
 	void (*realtime)(uint8_t msg);
 
+	/* System Common callbacks */
+	void (*mtc_quarter_frame)(uint8_t data);
+	void (*song_position)(uint16_t pos);
+	void (*song_select)(uint8_t song);
+	void (*tune_request)(void);
+
 	/*
-	 * Sysex callback data be aware this can be a lot of data e.g. sample
-	 * dumps
+	 * Sysex callback data be aware this can be a lot of data
 	 */
 	void (*sysex_start)(void);
 	void (*sysex_data)(uint8_t data);
@@ -121,11 +126,19 @@ struct midi1_serial_api {
 	                       uint8_t controller, uint8_t val);
 	void (*channelaftertouch)(const struct device * dev,
 	                          uint8_t channel, uint8_t val);
+	void (*program_change)(const struct device * dev,
+	                       uint8_t channel, uint8_t number);
+	void (*polyaftertouch)(const struct device * dev,
+	                       uint8_t channel, uint8_t key, uint8_t val);
 	void (*modwheel)(const struct device * dev,
 	                 uint8_t channel, uint16_t val);
 	void (*pitchwheel)(const struct device * dev,
 	                   uint8_t channel, uint16_t val);
 	/* System common */
+	void (*mtc_quarter_frame)(const struct device * dev, uint8_t data);
+	void (*song_position)(const struct device * dev, uint16_t pos);
+	void (*song_select)(const struct device * dev, uint8_t song);
+	void (*tune_request)(const struct device * dev);
 	void (*timingclock)(const struct device * dev);
 	void (*start)(const struct device * dev);
 	/* NOTE: Is actually 'continue' but that a reserved word in C :-) */
@@ -220,6 +233,25 @@ void midi1_serial_channelaftertouch(const struct device *dev,
                                     uint8_t channel, uint8_t val);
 
 /**
+ * @brief send a Program Change tx event via the instance inst
+ * @param *dev MIDI1.0 device serial instance.
+ * @param channel MIDI channel 0 == CH1
+ * @param number Program number (0-127)
+ */
+void midi1_serial_program_change(const struct device *dev,
+                                 uint8_t channel, uint8_t number);
+
+/**
+ * @brief send a Polyphonic Aftertouch tx event via the instance inst
+ * @param *dev MIDI1.0 device serial instance.
+ * @param channel MIDI channel 0 == CH1
+ * @param key MIDI key number
+ * @param val pressure value
+ */
+void midi1_serial_polyaftertouch(const struct device *dev,
+                                 uint8_t channel, uint8_t key, uint8_t val);
+
+/**
  * @brief send a ModWheel (MSB and LSB) via the instance inst
  *
  * @note Modulation Wheel both LSB and MSB
@@ -253,8 +285,35 @@ void midi1_serial_pitchwheel(const struct device *dev,
  */
 
 /**
+ * @brief send MIDI1 MTC Quarter Frame
+ * @param *dev MIDI1.0 device serial instance.
+ * @param data MTC payload (7-bit)
+ */
+void midi1_serial_mtc_quarter_frame(const struct device *dev, uint8_t data);
+
+/**
+ * @brief send MIDI1 Song Position Pointer
+ * @param *dev MIDI1.0 device serial instance.
+ * @param pos 14-bit position value
+ */
+void midi1_serial_song_position(const struct device *dev, uint16_t pos);
+
+/**
+ * @brief send MIDI1 Song Select
+ * @param *dev MIDI1.0 device serial instance.
+ * @param song Song number (0-127)
+ */
+void midi1_serial_song_select(const struct device *dev, uint8_t song);
+
+/**
+ * @brief send MIDI1 Tune Request
+ * @param *dev MIDI1.0 device serial instance.
+ */
+void midi1_serial_tune_request(const struct device *dev);
+
+/**
  * @brief send MIDI1 timing clock
- *
+...
  * @param *dev MIDI1.0 device serial instance.
  */
 void midi1_serial_timingclock(const struct device *dev);
