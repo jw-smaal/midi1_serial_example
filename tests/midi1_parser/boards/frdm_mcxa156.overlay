@@ -1,0 +1,30 @@
+/**
+ * @file frdm_k64f.overlay
+ * @brief overlay for this board from 2024
+ * @note
+ *
+ * Using the MCXA156 the mikroBUS socket is used for lpuart1.
+ *
+ * @author Jan-Willem Smaal <usenet@gispen.org>
+ * @date 20260102
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Classic MIDI1.0 over DIN5 plug.
+ * On the MCXA156 the mikroBUS socket J1 is on LPUART1
+ */
+&lpuart1 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+/ {
+	midi0: midi0 {
+                status = "okay";
+                compatible = "midi1_serial";
+                uart = <&lpuart1>;
+        };	
+};
+

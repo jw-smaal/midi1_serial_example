@@ -1,0 +1,34 @@
+/**
+ * @file frdm_k64f.overlay
+ * @brief overlay for this (older) NXP board
+ * @note
+ * it is using a MIDI arduino shield but I disconnected
+ * the 5V and connected it to 3.3V instead to protect the MCU inputs.
+ * I should lower the output and input from 220R resistors to 33R but it
+ * seems to "work" on some interfaces without that in some shape or form.
+ *
+ * @author Jan-Willem Smaal <usenet@gispen.org>
+ * @date 20260102
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Classic MIDI1.0 over DIN5 plug
+ */
+&uart3 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+
+/ {
+	midi0: midi0 {
+                status = "okay";
+                compatible = "midi1_serial";
+                uart = <&uart3>;
+        };
+};
+
+
+/* EOF */

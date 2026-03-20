@@ -1,0 +1,62 @@
+/*
+ * @brief FRDM-MCXW242 board configuration for the MIDI1.0 demo 
+ * @note
+ *
+ * @author Jan-Willem Smaal
+ * @date 20250101
+ * SPDX-License-Identifier: Apache-2.0
+ */
+ 
+/*
+ * Classic MIDI1.0 over DIN5 plug.
+ * note on the FRDM-MCXC242 the LPUART0 is shared with the MCU_LINK.
+ * so be aware!   If you send printk's you need to set the baud rate
+ * to 31250 from the default 115200 to see something usefull
+ *
+ * Also note anything you send out to the MCU_LINK will end up on the MIDI
+ * port!
+ *
+ */
+&lpuart0 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+/* This one is on the MIKRObus and is not shared with the MCU_LINK. */
+&lpuart1 {
+	status = "okay";
+	/* Set it to the MIDI baud rate */
+	current-speed = <31250>;
+};
+
+&pinctrl {
+	pinmux_lpuart0: pinmux_lpuart0 {
+		group0 {
+			/* Strongest drive + fast edges */
+			drive-strength = "high";
+			slew-rate = "fast";
+		};
+	};
+	pinmux_lpuart1: pinmux_lpuart1 {
+		group0 {
+			/* Strongest drive + fast edges */
+			drive-strength = "high";
+			slew-rate = "fast";
+		};
+	};
+};
+
+
+/ {
+	midi0: midi0 {
+		status = "okay";
+		compatible = "midi1_serial";
+		uart = <&lpuart0>;
+	};
+	midi1: midi1 {
+		status = "okay";
+		compatible = "midi1_serial";
+		uart = <&lpuart1>;
+	};
+};

@@ -1,5 +1,5 @@
 tests:
   midi.midi1_parser:
-    platform_allow: native_sim
+    platform_allow: frdm_mcxc242
     tags: midi parser
     timeout: 60
